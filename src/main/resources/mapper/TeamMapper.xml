@@ -4,8 +4,71 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.msc.mapper.TeamMapper">
+
+    <!-- Insert -->
+    <insert id="insert" parameterType="com.msc.model.entity.Team">
+        INSERT INTO teams
+        (id, name, short_name, code, country, country_code,
+         founded, logo, is_national,
+         venue_id, venue_name, venue_city, venue_capacity, venue_surface, venue_image,
+         league_id, season,
+         created_at, updated_at)
+        VALUES
+            (#{id}, #{name}, #{shortName}, #{code}, #{country}, #{countryCode},
+             #{founded}, #{logo}, #{isNational},
+             #{venueId}, #{venueName}, #{venueCity}, #{venueCapacity}, #{venueSurface}, #{venueImage},
+             #{leagueId}, #{season},
+             NOW(), NOW())
+    </insert>
+
+    <!-- Update -->
+    <update id="update" parameterType="com.msc.model.entity.Team">
+        UPDATE teams
+        SET
+            name = #{name},
+            short_name = #{shortName},
+            code = #{code},
+            country = #{country},
+            country_code = #{countryCode},
+            founded = #{founded},
+            logo = #{logo},
+            is_national = #{isNational},
+            venue_id = #{venueId},
+            venue_name = #{venueName},
+            venue_city = #{venueCity},
+            venue_capacity = #{venueCapacity},
+            venue_surface = #{venueSurface},
+            venue_image = #{venueImage},
+            league_id = #{leagueId},
+            season = #{season},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!-- Delete -->
+    <delete id="delete" parameterType="java.lang.Long">
+        DELETE FROM teams WHERE id = #{id}
+    </delete>
+
+    <!-- Find by ID -->
     <select id="findById" resultType="com.msc.model.entity.Team">
-        select *from teams where id = #{id}
+        SELECT *
+        FROM teams
+        WHERE id = #{id}
+    </select>
+
+    <!-- Count -->
+    <select id="count" resultType="long">
+        SELECT COUNT(*)
+        FROM teams
+    </select>
+
+    <!-- Page Query -->
+    <select id="findPage" resultType="com.msc.model.entity.Team">
+        SELECT *
+        FROM teams
+        ORDER BY id DESC
+            LIMIT #{offset}, #{size}
     </select>
 
 </mapper>

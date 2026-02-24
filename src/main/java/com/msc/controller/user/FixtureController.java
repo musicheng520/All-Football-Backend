@@ -1,4 +1,4 @@
-package com.msc.controller;
+package com.msc.controller.user;
 
 import com.msc.mapper.FixtureMapper;
 import com.msc.model.entity.Fixture;
