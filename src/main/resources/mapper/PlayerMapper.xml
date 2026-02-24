@@ -4,7 +4,85 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.msc.mapper.PlayerMapper">
+
+    <!-- Insert -->
+    <insert id="insert" parameterType="com.msc.model.entity.Player">
+        INSERT INTO players
+        (id, name, first_name, last_name, age,
+         birth_date, birth_place, birth_country,
+         nationality, height, weight, photo,
+         team_id, league_id, season,
+         created_at, updated_at)
+        VALUES
+            (#{id}, #{name}, #{firstName}, #{lastName}, #{age},
+             #{birthDate}, #{birthPlace}, #{birthCountry},
+             #{nationality}, #{height}, #{weight}, #{photo},
+             #{teamId}, #{leagueId}, #{season},
+             NOW(), NOW())
+    </insert>
+
+    <!-- Update -->
+    <update id="update" parameterType="com.msc.model.entity.Player">
+        UPDATE players
+        SET
+            name = #{name},
+            first_name = #{firstName},
+            last_name = #{lastName},
+            age = #{age},
+            birth_date = #{birthDate},
+            birth_place = #{birthPlace},
+            birth_country = #{birthCountry},
+            nationality = #{nationality},
+            height = #{height},
+            weight = #{weight},
+            photo = #{photo},
+            team_id = #{teamId},
+            league_id = #{leagueId},
+            season = #{season},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!-- Delete -->
+    <delete id="delete">
+        DELETE FROM players WHERE id = #{id}
+    </delete>
+
+    <!-- Find by ID -->
     <select id="findById" resultType="com.msc.model.entity.Player">
-        select * from players where id = #{id}
+        SELECT *
+        FROM players
+        WHERE id = #{id}
     </select>
+
+    <!-- Count (动态条件) -->
+    <select id="count" resultType="long">
+        SELECT COUNT(*)
+        FROM players
+        <where>
+            <if test="teamId != null">
+                AND team_id = #{teamId}
+            </if>
+            <if test="season != null">
+                AND season = #{season}
+            </if>
+        </where>
+    </select>
+
+    <!-- Page Query (动态条件 + 分页) -->
+    <select id="findPage" resultType="com.msc.model.entity.Player">
+        SELECT *
+        FROM players
+        <where>
+            <if test="teamId != null">
+                AND team_id = #{teamId}
+            </if>
+            <if test="season != null">
+                AND season = #{season}
+            </if>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
 </mapper>
