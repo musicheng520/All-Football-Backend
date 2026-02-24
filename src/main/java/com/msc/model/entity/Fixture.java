@@ -1,16 +1,32 @@
 package com.msc.model.entity;
 
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
 @Data
 public class Fixture {
+
     private Long id;
+
     private Long leagueId;
-    private String homeTeam;
-    private String awayTeam;
+    private Integer season;
+    private String round;
+
+    private Long homeTeamId;
+    private Long awayTeamId;
+
+    private Integer homeScore;
+    private Integer awayScore;
+
+    private String status;      // NS, LIVE, FT, HT ...
+    private Integer elapsed;    // minute
+
     private LocalDateTime matchTime;
-    private String status;
+
+    private String referee;
+    private String venue;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

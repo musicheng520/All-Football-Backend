@@ -4,7 +4,120 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.msc.mapper.FixtureMapper">
-    <select id="findById" resultType="com.msc.model.entity.Fixture">
-        select * from fixtures where id= #{id}
+
+    <!-- query -->
+    <select id="findById"
+            resultType="com.msc.model.entity.Fixture">
+        SELECT *
+        FROM fixtures
+        WHERE id = #{id}
     </select>
+
+    <!-- add -->
+    <insert id="insert"
+            parameterType="com.msc.model.entity.Fixture">
+        INSERT INTO fixtures
+        (id, league_id, season, round,
+         home_team_id, away_team_id,
+         home_score, away_score,
+         status, elapsed,
+         match_time, referee, venue,
+         created_at, updated_at)
+        VALUES
+            (#{id}, #{leagueId}, #{season}, #{round},
+             #{homeTeamId}, #{awayTeamId},
+             #{homeScore}, #{awayScore},
+             #{status}, #{elapsed},
+             #{matchTime}, #{referee}, #{venue},
+             #{createdAt}, #{updatedAt})
+    </insert>
+
+    <!-- regular update -->
+    <update id="update"
+            parameterType="com.msc.model.entity.Fixture">
+        UPDATE fixtures
+        <set>
+            <if test="leagueId != null">
+                league_id = #{leagueId},
+            </if>
+            <if test="season != null">
+                season = #{season},
+            </if>
+            <if test="round != null">
+                round = #{round},
+            </if>
+            <if test="homeTeamId != null">
+                home_team_id = #{homeTeamId},
+            </if>
+            <if test="awayTeamId != null">
+                away_team_id = #{awayTeamId},
+            </if>
+            <if test="matchTime != null">
+                match_time = #{matchTime},
+            </if>
+            <if test="referee != null">
+                referee = #{referee},
+            </if>
+            <if test="venue != null">
+                venue = #{venue},
+            </if>
+            updated_at = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- delete -->
+    <delete id="delete">
+        DELETE FROM fixtures
+        WHERE id = #{id}
+    </delete>
+
+    <!-- count -->
+    <select id="count" resultType="long">
+        SELECT COUNT(*)
+        FROM fixtures
+        <where>
+            <if test="leagueId != null">
+                AND league_id = #{leagueId}
+            </if>
+            <if test="season != null">
+                AND season = #{season}
+            </if>
+        </where>
+    </select>
+
+    <!-- pagination -->
+    <select id="findPage"
+            resultType="com.msc.model.entity.Fixture">
+        SELECT *
+        FROM fixtures
+        <where>
+            <if test="leagueId != null">
+                AND league_id = #{leagueId}
+            </if>
+            <if test="season != null">
+                AND season = #{season}
+            </if>
+        </where>
+        ORDER BY match_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <!-- Update score for live game -->
+    <update id="updateScore">
+        UPDATE fixtures
+        <set>
+            home_score = #{homeScore},
+            away_score = #{awayScore},
+            <if test="elapsed != null">
+                elapsed = #{elapsed},
+            </if>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            updated_at = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
 </mapper>
