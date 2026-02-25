@@ -1,13 +1,16 @@
 package com.msc.service.impl;
 
-import com.msc.context.BaseContext;
 import com.msc.mapper.UserMapper;
 import com.msc.model.entity.User;
 import com.msc.service.UserService;
 import com.msc.utils.JwtUtil;
+import com.msc.utils.ThreadLocalUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -15,6 +18,7 @@ public class UserServiceImpl implements UserService {
 
     private final UserMapper userMapper;
     private final JwtUtil jwtUtil;
+    private final StringRedisTemplate redisTemplate;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -25,7 +29,6 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("Username already exists");
         }
 
-        // encryption
         String encodedPassword = passwordEncoder.encode(user.getPassword());
         user.setPassword(encodedPassword);
 
@@ -45,13 +48,18 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("User disabled");
         }
 
-        // validation
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
             throw new RuntimeException("Wrong password");
         }
 
         // generate JWT
-        return jwtUtil.generateToken(user.getId(), user.getRole());
+        String token = jwtUtil.generateToken(user.getId(), user.getRole());
+
+        // store token in Redis (1 hour)
+        redisTemplate.opsForValue()
+                .set("login:" + user.getId(), token, 1, TimeUnit.HOURS);
+
+        return token;
     }
 
     @Override
@@ -61,7 +69,13 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User currentUser() {
-        Long userId = BaseContext.getCurrentId();
+
+        Long userId = ThreadLocalUtil.get();
+
+        if (userId == null) {
+            throw new RuntimeException("Not logged in");
+        }
+
         return userMapper.findById(userId);
     }
 
