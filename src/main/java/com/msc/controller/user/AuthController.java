@@ -1,5 +1,6 @@
 package com.msc.controller.user;
 
+import com.msc.model.dto.LoginRequestDTO;
 import com.msc.model.entity.User;
 import com.msc.result.Result;
 import com.msc.service.UserService;
@@ -20,8 +21,13 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public Result<String> login(@RequestBody User user) {
-        String token = userService.login(user.getUsername(), user.getPassword());
+    public Result<String> login(@RequestBody LoginRequestDTO dto) {
+
+        String token = userService.login(
+                dto.getUsername(),
+                dto.getPassword()
+        );
+
         return Result.success(token);
     }
 

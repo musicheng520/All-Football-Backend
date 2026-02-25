@@ -2,10 +2,12 @@ package com.msc.utils;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.util.Date;
 
+@Component
 public class JwtUtil {
 
     private static final String SECRET = "ThisIsASecureSecretKeyForMSCProject123456";
