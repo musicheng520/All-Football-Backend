@@ -1,0 +1,24 @@
+<mapper namespace="com.msc.mapper.CommentMapper">
+
+    <insert id="insert" parameterType="com.msc.model.entity.Comment" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO comments (news_id, user_id, content, created_at, updated_at)
+        VALUES (#{newsId}, #{userId}, #{content}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <select id="findByNewsId" resultType="com.msc.model.entity.Comment">
+        SELECT id,
+        news_id AS newsId,
+        user_id AS userId,
+        content,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+        FROM comments
+        WHERE news_id = #{newsId}
+        ORDER BY created_at DESC
+    </select>
+
+    <delete id="delete">
+        DELETE FROM comments WHERE id = #{id}
+    </delete>
+
+</mapper>
