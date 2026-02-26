@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.msc.mapper.FollowMapper">
+
+    <insert id="insert" parameterType="com.msc.model.entity.Follow" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO follows (user_id, team_id, created_at)
+        VALUES (#{userId}, #{teamId}, #{createdAt})
+    </insert>
+
+    <delete id="deleteByUserAndTeam">
+        DELETE FROM follows
+        WHERE user_id = #{userId} AND team_id = #{teamId}
+    </delete>
+
+    <select id="findTeamIdsByUserId" resultType="java.lang.Long">
+        SELECT team_id
+        FROM follows
+        WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="findByUserAndTeam" resultType="com.msc.model.entity.Follow">
+        SELECT id,
+               user_id AS userId,
+               team_id AS teamId,
+               created_at AS createdAt
+        FROM follows
+        WHERE user_id = #{userId} AND team_id = #{teamId}
+            LIMIT 1
+    </select>
+
+</mapper>
