@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.msc.mapper.NewsTeamMapper">
+
+    <insert id="batchInsert">
+        INSERT INTO news_teams (news_id, team_id)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.newsId}, #{item.teamId})
+        </foreach>
+    </insert>
+
+    <select id="findTeamIdsByNewsId" resultType="java.lang.Long">
+        SELECT team_id
+        FROM news_teams
+        WHERE news_id = #{newsId}
+    </select>
+
+    <delete id="deleteByNewsId">
+        DELETE FROM news_teams WHERE news_id = #{newsId}
+    </delete>
+
+    <select id="findNewsIdsByTeamId" resultType="java.lang.Long">
+        SELECT news_id
+        FROM news_teams
+        WHERE team_id = #{teamId}
+    </select>
+
+</mapper>
