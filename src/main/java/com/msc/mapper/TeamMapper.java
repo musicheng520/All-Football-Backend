@@ -18,6 +18,8 @@ public interface TeamMapper {
 
     long count();
 
+    List<Team> findByIds(@Param("ids") List<Long> ids);
+
     List<Team> findPage(@Param("offset") int offset,
                         @Param("size") int size);
 }

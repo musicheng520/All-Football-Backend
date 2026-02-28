@@ -1,12 +1,12 @@
 package com.msc.service.impl;
 
-import com.msc.mapper.NewsMapper;
-import com.msc.mapper.NewsPlayerMapper;
-import com.msc.mapper.NewsTeamMapper;
+import com.msc.mapper.*;
 import com.msc.model.dto.NewsCreateDTO;
-import com.msc.model.entity.News;
-import com.msc.model.entity.NewsPlayer;
-import com.msc.model.entity.NewsTeam;
+import com.msc.model.entity.*;
+import com.msc.model.vo.CommentVO;
+import com.msc.model.vo.NewsDetailVO;
+import com.msc.model.vo.PlayerSimpleVO;
+import com.msc.model.vo.TeamSimpleVO;
 import com.msc.service.NewsService;
 import com.msc.utils.ThreadLocalUtil;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +24,10 @@ public class NewsServiceImpl implements NewsService {
     private final NewsMapper newsMapper;
     private final NewsTeamMapper newsTeamMapper;
     private final NewsPlayerMapper newsPlayerMapper;
+    private final TeamMapper teamMapper;
+    private final UserMapper userMapper;
+    private final PlayerMapper playerMapper;
+    private final CommentMapper commentMapper;
 
     @Override
     @Transactional
@@ -105,6 +109,78 @@ public class NewsServiceImpl implements NewsService {
         }
 
         return newsMapper.findByIds(newsIds);
+    }
+
+    @Override
+    public NewsDetailVO getDetail(Long id) {
+
+        // query news
+        News news = newsMapper.findById(id);
+        if (news == null) {
+            throw new RuntimeException("News not found");
+        }
+
+        // query author
+        User author = userMapper.findById(news.getAuthorId());
+
+        // query relate teamIds
+        List<Long> teamIds = newsTeamMapper.findTeamIdsByNewsId(id);
+        List<Team> teams = teamIds.isEmpty()
+                ? List.of()
+                : teamMapper.findByIds(teamIds);
+
+        // query relate playerIds
+        List<Long> playerIds = newsPlayerMapper.findPlayerIdsByNewsId(id);
+        List<Player> players = playerIds.isEmpty()
+                ? List.of()
+                : playerMapper.findByIds(playerIds);
+
+        // query comments
+        List<Comment> comments = commentMapper.findByNewsId(id);
+
+        // assemble VO
+        NewsDetailVO vo = new NewsDetailVO();
+        vo.setId(news.getId());
+        vo.setTitle(news.getTitle());
+        vo.setContent(news.getContent());
+        vo.setAuthorName(author.getUsername());
+        vo.setCategory(news.getCategory());
+        vo.setPublishedAt(news.getPublishedAt());
+
+        // team conversion
+        List<TeamSimpleVO> teamVOs = teams.stream().map(team -> {
+            TeamSimpleVO t = new TeamSimpleVO();
+            t.setId(team.getId());
+            t.setName(team.getName());
+            t.setLogo(team.getLogo());
+            return t;
+        }).toList();
+
+        // player conversion
+        List<PlayerSimpleVO> playerVOs = players.stream().map(player -> {
+            PlayerSimpleVO p = new PlayerSimpleVO();
+            p.setId(player.getId());
+            p.setName(player.getName());
+            p.setPhoto(player.getPhoto());
+            return p;
+        }).toList();
+
+        // comment conversion（with username）
+        List<CommentVO> commentVOs = comments.stream().map(comment -> {
+            User user = userMapper.findById(comment.getUserId());
+            CommentVO c = new CommentVO();
+            c.setId(comment.getId());
+            c.setContent(comment.getContent());
+            c.setCreatedAt(comment.getCreatedAt());
+            c.setUsername(user.getUsername());
+            return c;
+        }).toList();
+
+        vo.setTeams(teamVOs);
+        vo.setPlayers(playerVOs);
+        vo.setComments(commentVOs);
+
+        return vo;
     }
 
     public List<News> findByPlayerId(Long playerId) {

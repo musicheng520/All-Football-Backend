@@ -19,6 +19,8 @@ public interface PlayerMapper {
     long count(@Param("teamId") Long teamId,
                @Param("season") Integer season);
 
+    List<Player> findByIds(@Param("ids") List<Long> ids);
+
     List<Player> findPage(@Param("offset") int offset,
                           @Param("size") int size,
                           @Param("teamId") Long teamId,

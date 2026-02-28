@@ -2,6 +2,7 @@ package com.msc.service;
 
 import com.msc.model.dto.NewsCreateDTO;
 import com.msc.model.entity.News;
+import com.msc.model.vo.NewsDetailVO;
 
 import java.util.List;
 
@@ -18,4 +19,6 @@ public interface NewsService {
      List<News> findByPlayerId(Long playerId);
 
     List<News> findByTeamId(Long teamId);
+
+    NewsDetailVO getDetail(Long id);
 }

@@ -1,6 +1,7 @@
 package com.msc.controller.user;
 
 import com.msc.model.entity.News;
+import com.msc.model.vo.NewsDetailVO;
 import com.msc.result.Result;
 import com.msc.service.NewsService;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +22,8 @@ public class UserNewsController {
     }
 
     @GetMapping("/{id}")
-    public Result<News> detail(@PathVariable Long id) {
-        return Result.success(newsService.findById(id));
+    public Result<NewsDetailVO> detail(@PathVariable Long id) {
+        return Result.success(newsService.getDetail(id));
     }
 
     @GetMapping("/team/{teamId}")
