@@ -7,6 +7,7 @@ import com.msc.model.vo.CommentVO;
 import com.msc.model.vo.NewsDetailVO;
 import com.msc.model.vo.PlayerSimpleVO;
 import com.msc.model.vo.TeamSimpleVO;
+import com.msc.result.PageResult;
 import com.msc.service.NewsService;
 import com.msc.utils.ThreadLocalUtil;
 import lombok.RequiredArgsConstructor;
@@ -181,6 +182,23 @@ public class NewsServiceImpl implements NewsService {
         vo.setComments(commentVOs);
 
         return vo;
+    }
+
+    @Override
+    public PageResult<News> page(int page, int size) {
+
+        int offset = (page - 1) * size;
+
+        long total = newsMapper.count();
+
+        List<News> records = newsMapper.page(offset, size);
+
+        return new PageResult<>(
+                total,
+                page,
+                size,
+                records
+        );
     }
 
     public List<News> findByPlayerId(Long playerId) {

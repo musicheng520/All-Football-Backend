@@ -1,6 +1,7 @@
 package com.msc.controller.admin;
 
 import com.msc.model.entity.User;
+import com.msc.result.PageResult;
 import com.msc.result.Result;
 import com.msc.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -23,5 +24,13 @@ public class AdminUserController {
                                @RequestParam Boolean enabled) {
         userService.updateStatus(id, enabled);
         return Result.success();
+    }
+
+    @GetMapping
+    public Result<PageResult<User>> list(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return Result.success(userService.page(page, size));
     }
 }

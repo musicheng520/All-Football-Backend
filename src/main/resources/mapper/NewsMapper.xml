@@ -40,5 +40,15 @@
         ORDER BY created_at DESC
     </select>
 
+    <select id="count" resultType="long">
+        select count(*) from news
+    </select>
+
+    <select id="page" resultType="com.msc.model.entity.News">
+        select *
+        from news
+        order by created_at desc
+            limit #{offset}, #{size}
+    </select>
 
 </mapper>

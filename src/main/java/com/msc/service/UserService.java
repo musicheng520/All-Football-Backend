@@ -1,6 +1,7 @@
 package com.msc.service;
 
 import com.msc.model.entity.User;
+import com.msc.result.PageResult;
 
 public interface UserService {
 
@@ -13,4 +14,6 @@ public interface UserService {
     User currentUser();
 
     void updateStatus(Long id, Boolean enabled);
+
+    PageResult<User> page(int page, int size);
 }

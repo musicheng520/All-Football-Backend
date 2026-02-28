@@ -19,6 +19,17 @@
         WHERE id = #{id}
     </select>
 
+    <select id="count" resultType="long">
+        select count(*) from users
+    </select>
+
+    <select id="page" resultType="com.msc.model.entity.User">
+        select *
+        from users
+        order by created_at desc
+            limit #{offset}, #{size}
+    </select>
+
     <insert id="insert"
             parameterType="com.msc.model.entity.User"
             useGeneratedKeys="true"

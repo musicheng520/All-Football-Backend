@@ -1,6 +1,7 @@
 package com.msc.controller.admin;
 
 import com.msc.model.entity.Player;
+import com.msc.result.PageResult;
 import com.msc.result.Result;
 import com.msc.service.PlayerService;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,18 @@ public class AdminPlayerController {
         player.setId(id);
         playerService.update(player);
         return Result.success();
+    }
+
+    @GetMapping
+    public Result<PageResult<Player>> page(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Long teamId,
+            @RequestParam(required = false) Integer season
+    ) {
+        return Result.success(
+                playerService.page(page, size, teamId, season)
+        );
     }
 
     @DeleteMapping("/{id}")

@@ -4,6 +4,8 @@ import com.msc.model.entity.User;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 @Mapper
 public interface UserMapper {
 
@@ -15,4 +17,9 @@ public interface UserMapper {
 
     void updateStatus(@Param("id") Long id,
                       @Param("enabled") Boolean enabled);
+
+    long count();
+
+    List<User> page(@Param("offset") int offset,
+                    @Param("size") int size);
 }

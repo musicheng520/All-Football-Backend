@@ -1,6 +1,7 @@
 package com.msc.controller.admin;
 
 import com.msc.model.entity.Fixture;
+import com.msc.result.PageResult;
 import com.msc.result.Result;
 import com.msc.service.FixtureService;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,17 @@ public class AdminFixtureController {
         return Result.success();
     }
 
+    @GetMapping
+    public Result<PageResult<Fixture>> page(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Long leagueId,
+            @RequestParam(required = false) Integer season
+    ) {
+        return Result.success(
+                fixtureService.page(page, size, leagueId, season)
+        );
+    }
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id,
                                @RequestBody Fixture fixture) {

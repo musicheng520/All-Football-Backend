@@ -28,4 +28,14 @@
         DELETE FROM comments WHERE id = #{id}
     </delete>
 
+    <select id="count" resultType="long">
+        select count(*) from comments
+    </select>
+
+    <select id="page" resultType="com.msc.model.entity.Comment">
+        select *
+        from comments
+        order by created_at desc
+            limit #{offset}, #{size}
+    </select>
 </mapper>

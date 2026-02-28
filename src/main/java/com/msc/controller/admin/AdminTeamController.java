@@ -1,6 +1,7 @@
 package com.msc.controller.admin;
 
 import com.msc.model.entity.Team;
+import com.msc.result.PageResult;
 import com.msc.result.Result;
 import com.msc.service.TeamService;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,14 @@ public class AdminTeamController {
     public Result<Void> create(@RequestBody Team team) {
         teamService.create(team);
         return Result.success();
+    }
+
+    @GetMapping
+    public Result<PageResult<Team>> page(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return Result.success(teamService.page(page, size));
     }
 
     @PutMapping("/{id}")

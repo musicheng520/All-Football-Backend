@@ -2,6 +2,7 @@ package com.msc.service.impl;
 
 import com.msc.mapper.UserMapper;
 import com.msc.model.entity.User;
+import com.msc.result.PageResult;
 import com.msc.service.UserService;
 import com.msc.utils.JwtUtil;
 import com.msc.utils.ThreadLocalUtil;
@@ -10,6 +11,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -82,5 +84,22 @@ public class UserServiceImpl implements UserService {
     @Override
     public void updateStatus(Long id, Boolean enabled) {
         userMapper.updateStatus(id, enabled);
+    }
+
+    @Override
+    public PageResult<User> page(int page, int size) {
+
+        int offset = (page - 1) * size;
+
+        long total = userMapper.count();
+
+        List<User> records = userMapper.page(offset, size);
+
+        return new PageResult<>(
+                total,
+                page,
+                size,
+                records
+        );
     }
 }

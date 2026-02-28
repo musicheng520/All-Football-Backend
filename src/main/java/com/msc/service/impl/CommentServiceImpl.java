@@ -3,6 +3,7 @@ package com.msc.service.impl;
 import com.msc.mapper.CommentMapper;
 import com.msc.model.dto.CommentCreateDTO;
 import com.msc.model.entity.Comment;
+import com.msc.result.PageResult;
 import com.msc.service.CommentService;
 import com.msc.utils.ThreadLocalUtil;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,19 @@ public class CommentServiceImpl implements CommentService {
     public List<Comment> findByNewsId(Long newsId) {
         return commentMapper.findByNewsId(newsId);
     }
+
+
+    @Override
+    public PageResult<Comment> page(int page, int size) {
+
+        int offset = (page - 1) * size;
+
+        long total = commentMapper.count();
+        List<Comment> records = commentMapper.page(offset, size);
+
+        return new PageResult<>(total, page, size, records);
+    }
+
 
     @Override
     public void delete(Long id) {

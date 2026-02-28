@@ -2,6 +2,7 @@ package com.msc.controller.admin;
 
 import com.msc.model.dto.NewsCreateDTO;
 import com.msc.model.entity.News;
+import com.msc.result.PageResult;
 import com.msc.result.Result;
 import com.msc.service.NewsService;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,10 @@ public class AdminNewsController {
     }
 
     @GetMapping
-    public Result<List<News>> list() {
-        return Result.success(newsService.findAll());
+    public Result<PageResult<News>> list(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return Result.success(newsService.page(page, size));
     }
 }

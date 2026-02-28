@@ -16,4 +16,8 @@ public interface NewsMapper {
     void delete(Long id);
 
     List<News> findByIds(List<Long> ids);
+
+    long count();
+
+    List<News> page(int offset, int size);
 }
