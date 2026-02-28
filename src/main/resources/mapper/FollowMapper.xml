@@ -10,6 +10,11 @@
         VALUES (#{userId}, #{teamId}, #{createdAt})
     </insert>
 
+    <select id="totalCount" resultType="long">
+        select count(*) from follows
+    </select>
+
+
     <delete id="deleteByUserAndTeam">
         DELETE FROM follows
         WHERE user_id = #{userId} AND team_id = #{teamId}

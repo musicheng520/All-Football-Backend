@@ -32,6 +32,10 @@
              #{createdAt}, #{updatedAt})
     </insert>
 
+    <select id="totalCount" resultType="long">
+        select count(*) from fixtures
+    </select>
+
     <!-- regular update -->
     <update id="update"
             parameterType="com.msc.model.entity.Fixture">

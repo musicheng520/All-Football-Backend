@@ -84,6 +84,12 @@
         ORDER BY id DESC
         LIMIT #{offset}, #{size}
     </select>
+
+    <select id="totalCount" resultType="long">
+        select count(*) from players
+    </select>
+
+
     <select id="findByIds" resultType="com.msc.model.entity.Player">
         select *
         from players

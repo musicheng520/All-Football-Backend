@@ -21,6 +21,8 @@ public interface PlayerMapper {
 
     List<Player> findByIds(@Param("ids") List<Long> ids);
 
+    long totalCount();
+
     List<Player> findPage(@Param("offset") int offset,
                           @Param("size") int size,
                           @Param("teamId") Long teamId,

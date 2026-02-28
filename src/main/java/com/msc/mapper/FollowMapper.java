@@ -10,6 +10,8 @@ public interface FollowMapper {
 
     void insert(Follow follow);
 
+    long totalCount();
+
     void deleteByUserAndTeam(Long userId, Long teamId);
 
     List<Long> findTeamIdsByUserId(Long userId);
