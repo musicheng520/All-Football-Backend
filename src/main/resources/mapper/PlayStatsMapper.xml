@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.msc.mapper.PlayerStatsMapper">
+
+    <insert id="upsert" parameterType="com.msc.model.entity.PlayerStats">
+        INSERT INTO player_stats
+        (player_id, team_id, league_id, season,
+         appearances, goals, assists,
+         yellow_cards, red_cards, rating,
+         created_at, updated_at)
+        VALUES
+            (#{playerId}, #{teamId}, #{leagueId}, #{season},
+             #{appearances}, #{goals}, #{assists},
+             #{yellowCards}, #{redCards}, #{rating},
+             NOW(), NOW())
+            ON DUPLICATE KEY UPDATE
+                                 team_id = VALUES(team_id),
+                                 appearances = VALUES(appearances),
+                                 goals = VALUES(goals),
+                                 assists = VALUES(assists),
+                                 yellow_cards = VALUES(yellow_cards),
+                                 red_cards = VALUES(red_cards),
+                                 rating = VALUES(rating),
+                                 updated_at = NOW()
+    </insert>
+
+</mapper>

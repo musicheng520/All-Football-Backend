@@ -67,6 +67,13 @@ public class AdminSyncController {
         return Result.success("Players synced.");
     }
 
+
+    @PostMapping("/player-stats")
+    public Result syncPlayerStats(@RequestParam Integer season) {
+        externalFootballService.syncPlayerStats(season);
+        return Result.success("Player stats synced.");
+    }
+
     @PostMapping("/fixtures")
     public Result syncAllFixtures(@RequestParam Integer season) {
 

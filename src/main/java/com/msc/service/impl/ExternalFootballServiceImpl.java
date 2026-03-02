@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.msc.config.FootballProperties;
 import com.msc.mapper.FixtureMapper;
 import com.msc.mapper.PlayerMapper;
+import com.msc.mapper.PlayerStatsMapper;
 import com.msc.model.entity.Fixture;
 import com.msc.model.entity.Player;
+import com.msc.model.entity.PlayerStats;
 import com.msc.model.entity.Team;
 import com.msc.mapper.TeamMapper;
 import com.msc.service.ExternalFootballService;
@@ -31,6 +33,7 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
     private final TeamMapper teamMapper;
     private final FixtureMapper fixtureMapper;
     private final PlayerMapper playerMapper;
+    private final PlayerStatsMapper playerStatsMapper;
 
     @Override
     public String fetchTeams(Long leagueId, Integer season) {
@@ -47,6 +50,118 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                 restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
 
         return response.getBody();
+    }
+
+
+    @Override
+    @Transactional
+    public void syncPlayerStats(Integer season) {
+
+        List<Long> leagues = properties.getSupportedLeagues();
+
+        for (Long leagueId : leagues) {
+
+            int page = 1;
+            int totalPages;
+
+            do {
+
+                String url = "https://" + properties.getApi().getHost()
+                        + "/players?league=" + leagueId
+                        + "&season=" + season
+                        + "&page=" + page;
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("x-apisports-key", properties.getApi().getKey());
+
+                HttpEntity<String> entity = new HttpEntity<>(headers);
+
+                ResponseEntity<String> response =
+                        restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+                try {
+
+                    JsonNode root = objectMapper.readTree(response.getBody());
+
+                    totalPages = root.get("paging").get("total").asInt();
+                    JsonNode responseArr = root.get("response");
+
+                    int count = 0;
+
+                    for (JsonNode item : responseArr) {
+
+                        JsonNode playerNode = item.get("player");
+                        JsonNode statsArr = item.get("statistics");
+
+                        if (statsArr == null || statsArr.size() == 0)
+                            continue;
+
+                        Long playerId = playerNode.get("id").asLong();
+
+                        // ✅ 关键：确保 players 表里存在
+                        if (playerMapper.findById(playerId) == null) {
+                            continue;
+                        }
+
+                        JsonNode stat = statsArr.get(0);
+
+                        PlayerStats ps = new PlayerStats();
+
+                        ps.setPlayerId(playerId);
+                        ps.setLeagueId(leagueId);
+                        ps.setSeason(season);
+
+                        if (stat.has("team") && !stat.get("team").isNull()) {
+                            ps.setTeamId(
+                                    stat.get("team").get("id").asLong()
+                            );
+                        }
+
+                        // ⚠ API 拼写是 appearences
+                        ps.setAppearances(
+                                intOrNull(stat.get("games").get("appearences"))
+                        );
+
+                        ps.setGoals(
+                                intOrNull(stat.get("goals").get("total"))
+                        );
+
+                        ps.setAssists(
+                                intOrNull(stat.get("goals").get("assists"))
+                        );
+
+                        ps.setYellowCards(
+                                intOrNull(stat.get("cards").get("yellow"))
+                        );
+
+                        ps.setRedCards(
+                                intOrNull(stat.get("cards").get("red"))
+                        );
+
+                        ps.setRating(
+                                textOrNull(stat.get("games").get("rating"))
+                        );
+
+                        playerStatsMapper.upsert(ps);
+                        count++;
+                    }
+
+                    System.out.println("[PlayerStatsSync] league=" + leagueId
+                            + " page=" + page
+                            + "/" + totalPages
+                            + " upserted=" + count);
+
+                    page++;
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    break;
+                }
+
+            } while (page <= totalPages);
+        }
+
+        System.out.println("[PlayerStatsSync] Completed season=" + season);
     }
 
     @Override
