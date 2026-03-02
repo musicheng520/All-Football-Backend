@@ -14,6 +14,8 @@ public interface PlayerMapper {
 
     void update(Player player);
 
+    void upsert(Player player);
+
     void delete(Long id);
 
     long count(@Param("teamId") Long teamId,

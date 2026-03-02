@@ -21,6 +21,34 @@
              NOW(), NOW())
     </insert>
 
+    <!--api get data-->
+    <insert id="upsert" parameterType="com.msc.model.entity.Player">
+        INSERT INTO players
+        (id, name, age, birth_date, birth_place, birth_country,
+         nationality, height, weight, photo,
+         team_id, league_id, season,
+         created_at, updated_at)
+        VALUES
+            (#{id}, #{name}, #{age}, #{birthDate}, #{birthPlace}, #{birthCountry},
+             #{nationality}, #{height}, #{weight}, #{photo},
+             #{teamId}, #{leagueId}, #{season},
+             NOW(), NOW())
+            ON DUPLICATE KEY UPDATE
+                                 name = VALUES(name),
+                                 age = VALUES(age),
+                                 birth_date = VALUES(birth_date),
+                                 birth_place = VALUES(birth_place),
+                                 birth_country = VALUES(birth_country),
+                                 nationality = VALUES(nationality),
+                                 height = VALUES(height),
+                                 weight = VALUES(weight),
+                                 photo = VALUES(photo),
+                                 team_id = VALUES(team_id),
+                                 league_id = VALUES(league_id),
+                                 season = VALUES(season),
+                                 updated_at = NOW()
+    </insert>
+
     <!-- Update -->
     <update id="update" parameterType="com.msc.model.entity.Player">
         UPDATE players
