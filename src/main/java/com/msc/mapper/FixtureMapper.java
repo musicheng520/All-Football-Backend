@@ -15,6 +15,8 @@ public interface FixtureMapper {
 
     long totalCount();
 
+    void upsert(Fixture fixture);
+
     void update(Fixture fixture);
 
     void delete(Long id);

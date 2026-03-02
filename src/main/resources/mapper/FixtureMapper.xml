@@ -36,6 +36,38 @@
         select count(*) from fixtures
     </select>
 
+    <!--get fixture from api-->
+    <insert id="upsert" parameterType="com.msc.model.entity.Fixture">
+        INSERT INTO fixtures
+        (id, league_id, season, round,
+         home_team_id, away_team_id,
+         home_score, away_score,
+         status, elapsed,
+         match_time, referee, venue,
+         created_at, updated_at)
+        VALUES
+            (#{id}, #{leagueId}, #{season}, #{round},
+             #{homeTeamId}, #{awayTeamId},
+             #{homeScore}, #{awayScore},
+             #{status}, #{elapsed},
+             #{matchTime}, #{referee}, #{venue},
+             NOW(), NOW())
+            ON DUPLICATE KEY UPDATE
+                                 league_id = VALUES(league_id),
+                                 season = VALUES(season),
+                                 round = VALUES(round),
+                                 home_team_id = VALUES(home_team_id),
+                                 away_team_id = VALUES(away_team_id),
+                                 home_score = VALUES(home_score),
+                                 away_score = VALUES(away_score),
+                                 status = VALUES(status),
+                                 elapsed = VALUES(elapsed),
+                                 match_time = VALUES(match_time),
+                                 referee = VALUES(referee),
+                                 venue = VALUES(venue),
+                                 updated_at = NOW()
+    </insert>
+
     <!-- regular update -->
     <update id="update"
             parameterType="com.msc.model.entity.Fixture">
