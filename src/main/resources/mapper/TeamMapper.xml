@@ -21,6 +21,37 @@
              NOW(), NOW())
     </insert>
 
+    <!--upsert from api-->
+    <insert id="upsert" parameterType="com.msc.model.entity.Team">
+        INSERT INTO teams
+        (id, name, code, country, founded, is_national,
+         logo, venue_id, venue_name, venue_city,
+         venue_capacity, venue_surface, venue_image,
+         league_id, season, created_at, updated_at)
+        VALUES
+            (#{id}, #{name}, #{code}, #{country}, #{founded}, #{isNational},
+             #{logo}, #{venueId}, #{venueName}, #{venueCity},
+             #{venueCapacity}, #{venueSurface}, #{venueImage},
+             #{leagueId}, #{season}, NOW(), NOW())
+            ON DUPLICATE KEY UPDATE
+                                 name = VALUES(name),
+                                 code = VALUES(code),
+                                 country = VALUES(country),
+                                 founded = VALUES(founded),
+                                 is_national = VALUES(is_national),
+                                 logo = VALUES(logo),
+                                 venue_id = VALUES(venue_id),
+                                 venue_name = VALUES(venue_name),
+                                 venue_city = VALUES(venue_city),
+                                 venue_capacity = VALUES(venue_capacity),
+                                 venue_surface = VALUES(venue_surface),
+                                 venue_image = VALUES(venue_image),
+                                 league_id = VALUES(league_id),
+                                 season = VALUES(season),
+                                 updated_at = NOW()
+    </insert>
+
+
     <!-- Update -->
     <update id="update" parameterType="com.msc.model.entity.Team">
         UPDATE teams
@@ -55,6 +86,12 @@
         SELECT *
         FROM teams
         WHERE id = #{id}
+    </select>
+
+    <select id="findBySeason" resultType="com.msc.model.entity.Team">
+        SELECT *
+        FROM teams
+        WHERE season = #{season}
     </select>
 
     <!-- Count -->

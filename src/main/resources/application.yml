@@ -22,3 +22,16 @@ mybatis:
   mapper-locations: classpath:mapper/*.xml
   configuration:
     map-underscore-to-camel-case: true
+
+football:
+  api:
+    key: ${allfootball.football.api-key}
+    host: v3.football.api-sports.io
+
+  default-season: 2025
+  supported-leagues:
+    - 39
+    - 140
+    - 78
+    - 135
+    - 61

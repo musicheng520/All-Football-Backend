@@ -10,6 +10,8 @@ import java.util.List;
 public interface TeamMapper {
     Team findById(Long id);
 
+    List<Team> findBySeason(Integer season);
+
     void delete(Long id);
 
     void update(Team team);
@@ -22,4 +24,6 @@ public interface TeamMapper {
 
     List<Team> findPage(@Param("offset") int offset,
                         @Param("size") int size);
+
+    void upsert(Team team);
 }
