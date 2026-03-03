@@ -81,4 +81,27 @@ public class AdminSyncController {
 
         return Result.success("All fixtures synced.");
     }
+
+    /**
+     * Test Live API once (no redis)
+     */
+    @PostMapping("/live/test")
+    public Result testLiveOnce() {
+
+        String json = externalFootballService.fetchLiveFixturesFilteredJson();
+
+        return Result.success("Live fetched, length = " + json.length());
+    }
+
+
+    /**
+     * Refresh Live Snapshot into Redis manually
+     */
+    @PostMapping("/live/refresh")
+    public Result refreshLiveSnapshot() {
+
+        externalFootballService.refreshLiveSnapshotToRedis();
+
+        return Result.success("Live snapshot saved to Redis.");
+    }
 }

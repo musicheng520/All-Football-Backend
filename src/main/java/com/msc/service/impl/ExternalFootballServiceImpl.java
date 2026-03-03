@@ -2,6 +2,7 @@ package com.msc.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.msc.config.FootballProperties;
 import com.msc.mapper.FixtureMapper;
 import com.msc.mapper.PlayerMapper;
@@ -13,11 +14,13 @@ import com.msc.model.entity.Team;
 import com.msc.mapper.TeamMapper;
 import com.msc.service.ExternalFootballService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -34,6 +37,7 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
     private final FixtureMapper fixtureMapper;
     private final PlayerMapper playerMapper;
     private final PlayerStatsMapper playerStatsMapper;
+    private final StringRedisTemplate stringRedisTemplate;
 
     @Override
     public String fetchTeams(Long leagueId, Integer season) {
@@ -426,6 +430,72 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
 
         System.out.println("[PlayerSync] Completed season=" + season);
     }
+
+    @Override
+    public String fetchLiveFixturesFilteredJson() {
+
+        String url = "https://" + properties.getApi().getHost()
+                + "/fixtures?live=all";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("x-apisports-key", properties.getApi().getKey());
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<String> response =
+                restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+        try {
+
+            JsonNode root = objectMapper.readTree(response.getBody());
+            JsonNode responseArr = root.get("response");
+
+            int total = (responseArr == null) ? 0 : responseArr.size();
+
+            List<Long> allowed = properties.getSupportedLeagues();
+            ArrayNode filtered = objectMapper.createArrayNode();
+
+            if (responseArr != null) {
+                for (JsonNode item : responseArr) {
+
+                    JsonNode leagueNode = item.get("league");
+
+                    if (leagueNode == null || leagueNode.get("id") == null) {
+                        continue;
+                    }
+
+                    long leagueId = leagueNode.get("id").asLong();
+
+                    if (allowed != null && allowed.contains(leagueId)) {
+                        filtered.add(item);
+                    }
+                }
+            }
+
+            System.out.println("[LiveFetch] total=" + total
+                    + " filtered=" + filtered.size());
+
+            return filtered.toString();
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void refreshLiveSnapshotToRedis() {
+
+        String json = fetchLiveFixturesFilteredJson();
+
+        stringRedisTemplate.opsForValue()
+                .set("live:fixtures",
+                        json,
+                        Duration.ofSeconds(60));
+
+        System.out.println("[LiveSnapshot] saved to redis, len="
+                + json.length());
+    }
+
 
     private String textOrNull(JsonNode node) {
         if (node == null || node.isNull()) return null;
