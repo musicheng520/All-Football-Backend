@@ -500,26 +500,35 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                 oldSnapshot = objectMapper.readTree(oldJson);
             }
 
-            // 2 construct old data Map（O(n)）
-            Map<Long, JsonNode> oldMatchMap = new HashMap<>();
-
-            if (oldSnapshot != null) {
-
-                for (JsonNode match : oldSnapshot) {
-
-                    long id = match.get("fixture")
-                            .get("id")
-                            .asLong();
-
-                    oldMatchMap.put(id, match);
-                }
-            }
-
-            // 3.get new snapshot
+            // 2️. get new snapshot FIRST
             String newJson = fetchLiveFixturesFilteredJson();
             JsonNode newSnapshot = objectMapper.readTree(newJson);
 
-            // 4.delta detection
+            // 3️. cold start handling
+            if (oldSnapshot == null) {
+
+                stringRedisTemplate.opsForValue()
+                        .set("live:fixtures",
+                                newJson,
+                                Duration.ofSeconds(60));
+
+                System.out.println("[LiveSnapshot] initialized (cold start)");
+                return;
+            }
+
+            // 4️. construct old data Map（O(n)）
+            Map<Long, JsonNode> oldMatchMap = new HashMap<>();
+
+            for (JsonNode match : oldSnapshot) {
+
+                long id = match.get("fixture")
+                        .get("id")
+                        .asLong();
+
+                oldMatchMap.put(id, match);
+            }
+
+            // 5️. delta detection
             for (JsonNode newMatch : newSnapshot) {
 
                 long fixtureId = newMatch.get("fixture")
@@ -540,7 +549,7 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                 }
             }
 
-            // 5️. update Redis snapshot
+            // 6️. update Redis snapshot
             stringRedisTemplate.opsForValue()
                     .set("live:fixtures",
                             newJson,
