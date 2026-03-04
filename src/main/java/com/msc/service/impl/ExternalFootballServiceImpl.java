@@ -25,7 +25,9 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -489,7 +491,7 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
 
         try {
 
-            // 1.get old data
+            // 1️. read old snapshot
             String oldJson = stringRedisTemplate.opsForValue()
                     .get("live:fixtures");
 
@@ -498,33 +500,47 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                 oldSnapshot = objectMapper.readTree(oldJson);
             }
 
-            // 2. receive new data
-            String newJson = fetchLiveFixturesFilteredJson();
-            JsonNode newSnapshot = objectMapper.readTree(newJson);
+            // 2 construct old data Map（O(n)）
+            Map<Long, JsonNode> oldMatchMap = new HashMap<>();
 
-            // 3️. delta detection
             if (oldSnapshot != null) {
 
-                for (JsonNode newMatch : newSnapshot) {
+                for (JsonNode match : oldSnapshot) {
 
-                    long fixtureId =
-                            newMatch.get("fixture").get("id").asLong();
+                    long id = match.get("fixture")
+                            .get("id")
+                            .asLong();
 
-                    JsonNode oldMatch = findMatchById(oldSnapshot, fixtureId);
-
-                    List<String> changes =
-                            deltaManager.detectChanges(oldMatch, newMatch);
-
-                    if (!changes.isEmpty()) {
-                        System.out.println(
-                                "Match " + fixtureId +
-                                        " changed → " + changes
-                        );
-                    }
+                    oldMatchMap.put(id, match);
                 }
             }
 
-            // 4️. update Redis
+            // 3.get new snapshot
+            String newJson = fetchLiveFixturesFilteredJson();
+            JsonNode newSnapshot = objectMapper.readTree(newJson);
+
+            // 4.delta detection
+            for (JsonNode newMatch : newSnapshot) {
+
+                long fixtureId = newMatch.get("fixture")
+                        .get("id")
+                        .asLong();
+
+                JsonNode oldMatch = oldMatchMap.get(fixtureId);
+
+                List<String> changes =
+                        deltaManager.detectChanges(oldMatch, newMatch);
+
+                if (!changes.isEmpty()) {
+
+                    System.out.println(
+                            "Match " + fixtureId +
+                                    " changed → " + changes
+                    );
+                }
+            }
+
+            // 5️. update Redis snapshot
             stringRedisTemplate.opsForValue()
                     .set("live:fixtures",
                             newJson,
