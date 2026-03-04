@@ -12,6 +12,7 @@ import com.msc.model.entity.Player;
 import com.msc.model.entity.PlayerStats;
 import com.msc.model.entity.Team;
 import com.msc.mapper.TeamMapper;
+import com.msc.realtime.delta.DeltaManager;
 import com.msc.service.ExternalFootballService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -38,6 +39,7 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
     private final PlayerMapper playerMapper;
     private final PlayerStatsMapper playerStatsMapper;
     private final StringRedisTemplate stringRedisTemplate;
+    private final DeltaManager deltaManager;
 
     @Override
     public String fetchTeams(Long leagueId, Integer season) {
@@ -485,17 +487,69 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
     @Override
     public void refreshLiveSnapshotToRedis() {
 
-        String json = fetchLiveFixturesFilteredJson();
+        try {
 
-        stringRedisTemplate.opsForValue()
-                .set("live:fixtures",
-                        json,
-                        Duration.ofSeconds(60));
+            // 1.get old data
+            String oldJson = stringRedisTemplate.opsForValue()
+                    .get("live:fixtures");
 
-        System.out.println("[LiveSnapshot] saved to redis, len="
-                + json.length());
+            JsonNode oldSnapshot = null;
+            if (oldJson != null && !oldJson.isEmpty()) {
+                oldSnapshot = objectMapper.readTree(oldJson);
+            }
+
+            // 2. receive new data
+            String newJson = fetchLiveFixturesFilteredJson();
+            JsonNode newSnapshot = objectMapper.readTree(newJson);
+
+            // 3️. delta detection
+            if (oldSnapshot != null) {
+
+                for (JsonNode newMatch : newSnapshot) {
+
+                    long fixtureId =
+                            newMatch.get("fixture").get("id").asLong();
+
+                    JsonNode oldMatch = findMatchById(oldSnapshot, fixtureId);
+
+                    List<String> changes =
+                            deltaManager.detectChanges(oldMatch, newMatch);
+
+                    if (!changes.isEmpty()) {
+                        System.out.println(
+                                "Match " + fixtureId +
+                                        " changed → " + changes
+                        );
+                    }
+                }
+            }
+
+            // 4️. update Redis
+            stringRedisTemplate.opsForValue()
+                    .set("live:fixtures",
+                            newJson,
+                            Duration.ofSeconds(60));
+
+            System.out.println("[LiveSnapshot] updated");
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
+    private JsonNode findMatchById(JsonNode snapshot, long fixtureId) {
+
+        for (JsonNode match : snapshot) {
+
+            long id = match.get("fixture").get("id").asLong();
+
+            if (id == fixtureId) {
+                return match;
+            }
+        }
+
+        return null;
+    }
 
     private String textOrNull(JsonNode node) {
         if (node == null || node.isNull()) return null;

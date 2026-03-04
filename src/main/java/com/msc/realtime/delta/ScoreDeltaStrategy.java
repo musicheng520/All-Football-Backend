@@ -9,8 +9,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class ScoreDeltaStrategy implements DeltaStrategy {
 
+
     @Override
     public boolean hasChanged(JsonNode oldNode, JsonNode newNode) {
+
 
         if (oldNode == null) return true;
 
@@ -22,6 +24,8 @@ public class ScoreDeltaStrategy implements DeltaStrategy {
 
         return !safeEquals(oldHome, newHome)
                 || !safeEquals(oldAway, newAway);
+
+
     }
 
     @Override
