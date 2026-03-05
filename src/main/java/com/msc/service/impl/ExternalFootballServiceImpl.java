@@ -14,6 +14,7 @@ import com.msc.model.entity.Team;
 import com.msc.mapper.TeamMapper;
 import com.msc.realtime.delta.DeltaManager;
 import com.msc.service.ExternalFootballService;
+import com.msc.service.LivePushService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.*;
@@ -42,6 +43,7 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
     private final PlayerStatsMapper playerStatsMapper;
     private final StringRedisTemplate stringRedisTemplate;
     private final DeltaManager deltaManager;
+    private final LivePushService livePushService;
 
     @Override
     public String fetchTeams(Long leagueId, Integer season) {
@@ -546,6 +548,8 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                             "Match " + fixtureId +
                                     " changed → " + changes
                     );
+
+                    livePushService.broadcast(newMatch);
                 }
             }
 
