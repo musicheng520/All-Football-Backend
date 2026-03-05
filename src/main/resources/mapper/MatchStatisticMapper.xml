@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.msc.mapper.MatchStatisticMapper">
+
+    <delete id="deleteByFixtureId">
+        delete from match_statistics where fixture_id = #{fixtureId}
+    </delete>
+
+    <insert id="insertBatch">
+        insert into match_statistics
+        (fixture_id, team_id,
+        shots_total, shots_on_target, possession,
+        fouls, corners, yellow_cards, red_cards, offsides, created_at)
+        values
+        <foreach collection="list" item="s" separator=",">
+            (#{s.fixtureId}, #{s.teamId},
+            #{s.shotsTotal}, #{s.shotsOnTarget}, #{s.possession},
+            #{s.fouls}, #{s.corners}, #{s.yellowCards}, #{s.redCards}, #{s.offsides}, now())
+        </foreach>
+    </insert>
+
+</mapper>

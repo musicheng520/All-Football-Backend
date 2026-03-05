@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.msc.mapper.MatchEventMapper">
+
+    <delete id="deleteByFixtureId">
+        delete from match_events where fixture_id = #{fixtureId}
+    </delete>
+
+    <insert id="insertBatch">
+        insert into match_events
+        (fixture_id, team_id, player_id, assist_player_id,
+        minute, extra_minute, type, detail, comments, created_at)
+        values
+        <foreach collection="list" item="e" separator=",">
+            (#{e.fixtureId}, #{e.teamId}, #{e.playerId}, #{e.assistPlayerId},
+            #{e.minute}, #{e.extraMinute}, #{e.type}, #{e.detail}, #{e.comments}, now())
+        </foreach>
+    </insert>
+
+</mapper>

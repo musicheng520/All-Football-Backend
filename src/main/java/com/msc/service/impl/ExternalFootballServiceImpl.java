@@ -15,7 +15,10 @@ import com.msc.mapper.TeamMapper;
 import com.msc.realtime.delta.DeltaManager;
 import com.msc.service.ExternalFootballService;
 import com.msc.service.LivePushService;
+import com.msc.service.MatchFinalizeService;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -44,6 +47,8 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
     private final StringRedisTemplate stringRedisTemplate;
     private final DeltaManager deltaManager;
     private final LivePushService livePushService;
+    @Lazy
+    private final MatchFinalizeService matchFinalizeService;
 
     @Override
     public String fetchTeams(Long leagueId, Integer season) {
@@ -489,6 +494,23 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
     }
 
     @Override
+    public String fetchFixtureById(Long fixtureId) {
+
+        String url = "https://" + properties.getApi().getHost()
+                + "/fixtures?id=" + fixtureId;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("x-apisports-key", properties.getApi().getKey());
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<String> response =
+                restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+        return response.getBody();
+    }
+
+    @Override
     public void refreshLiveSnapshotToRedis() {
 
         try {
@@ -549,7 +571,31 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                                     " changed → " + changes
                     );
 
+
+
                     livePushService.broadcast(newMatch);
+                    // -------- FT match persistence --------
+                    String status = newMatch
+                            .get("fixture")
+                            .get("status")
+                            .get("short")
+                            .asText();
+
+                    if ("FT".equals(status) || "AET".equals(status) || "PEN".equals(status)) {
+
+                        Long added = stringRedisTemplate.opsForSet()
+                                .add("finished:fixtures", String.valueOf(fixtureId));
+
+                        // ensure only save once
+                        if (added != null && added == 1L) {
+
+                            System.out.println(
+                                    "[FinalizeTrigger] fixture=" + fixtureId + " status=" + status
+                            );
+
+                            matchFinalizeService.finalizeMatch(fixtureId);
+                        }
+                    }
                 }
             }
 

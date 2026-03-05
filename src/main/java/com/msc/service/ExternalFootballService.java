@@ -16,4 +16,6 @@ public interface ExternalFootballService {
     void refreshLiveSnapshotToRedis();
 
     String fetchLiveFixturesFilteredJson();
+
+    String fetchFixtureById(Long fixtureId);
 }

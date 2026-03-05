@@ -3,6 +3,7 @@ package com.msc.controller.admin;
 import com.msc.config.FootballProperties;
 import com.msc.result.Result;
 import com.msc.service.ExternalFootballService;
+import com.msc.service.MatchFinalizeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,6 +14,7 @@ public class AdminSyncController {
 
     private final ExternalFootballService externalFootballService;
     private final FootballProperties footballProperties;
+    private final MatchFinalizeService matchFinalizeService;
 
     /**
      * Test Teams API connectivity
@@ -103,5 +105,13 @@ public class AdminSyncController {
         externalFootballService.refreshLiveSnapshotToRedis();
 
         return Result.success("Live snapshot saved to Redis.");
+    }
+
+    @PostMapping("/finalize")
+    public Result finalizeMatch(@RequestParam Long fixtureId) {
+
+        matchFinalizeService.finalizeMatch(fixtureId);
+
+        return Result.success("Match finalized: " + fixtureId);
     }
 }

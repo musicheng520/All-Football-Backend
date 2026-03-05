@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.msc.mapper.LineupMapper">
+
+    <delete id="deleteByFixtureId">
+        delete from lineups where fixture_id = #{fixtureId}
+    </delete>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        insert into lineups (fixture_id, team_id, formation, coach, created_at)
+        values (#{fixtureId}, #{teamId}, #{formation}, #{coach}, now())
+    </insert>
+
+</mapper>
