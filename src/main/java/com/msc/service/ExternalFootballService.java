@@ -17,6 +17,9 @@ public interface ExternalFootballService {
 
     void syncLineups(Integer season);
 
+    void syncYesterdayMatches();
+
+    void weeklyBaseSync(Integer season);
 
     void syncMatchStatistics(Integer season);
 

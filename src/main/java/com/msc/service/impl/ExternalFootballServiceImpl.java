@@ -337,6 +337,56 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
         System.out.println("[LineupSync] synced players=" + total);
     }
 
+    @Override
+    @Transactional
+    public void syncYesterdayMatches() {
+
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+
+        List<Fixture> fixtures = fixtureMapper.findByDate(yesterday);
+
+        if (fixtures == null || fixtures.isEmpty()) {
+            System.out.println("[YesterdaySync] no fixtures found");
+            return;
+        }
+
+        int count = 0;
+
+        for (Fixture fixture : fixtures) {
+
+            try {
+
+                String status = fixture.getStatus();
+
+                if ("FT".equals(status) || "AET".equals(status) || "PEN".equals(status)) {
+
+                    matchFinalizeService.finalizeMatch(fixture.getId());
+                    count++;
+                }
+
+            } catch (Exception e) {
+
+                System.out.println("[YesterdaySync] fail fixture=" + fixture.getId());
+                e.printStackTrace();
+            }
+        }
+
+        System.out.println("[YesterdaySync] finalized=" + count);
+    }
+
+    @Override
+    @Transactional
+    public void weeklyBaseSync(Integer season) {
+
+        System.out.println("[WeeklyBaseSync] start season=" + season);
+
+        syncTeams(season);
+        syncPlayers(season);
+        syncAllFixtures(season);
+        syncPlayerStats(season);
+
+        System.out.println("[WeeklyBaseSync] completed season=" + season);
+    }
 
 
     @Override

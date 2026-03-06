@@ -4,6 +4,7 @@ import com.msc.model.entity.Fixture;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Mapper
@@ -36,4 +37,6 @@ public interface FixtureMapper {
                      @Param("status") String status);
 
     List<Fixture> findBySeason(Integer season);
+
+    List<Fixture> findByDate(LocalDate date);
 }

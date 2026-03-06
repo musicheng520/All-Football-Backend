@@ -132,6 +132,21 @@ public class AdminSyncController {
     }
 
 
+    @PostMapping("/yesterday")
+    public Result syncYesterday() {
+
+        externalFootballService.syncYesterdayMatches();
+
+        return Result.success("Yesterday matches synced.");
+    }
+
+    @PostMapping("/weekly-base")
+    public Result weeklyBaseSync(@RequestParam Integer season) {
+
+        externalFootballService.weeklyBaseSync(season);
+
+        return Result.success("Weekly base sync completed.");
+    }
 
     @PostMapping("/match-statistics")
     public Result syncMatchStatistics(@RequestParam Integer season) {

@@ -145,6 +145,12 @@
         WHERE season = #{season}
     </select>
 
+    <select id="findByDate" resultType="com.msc.model.entity.Fixture">
+        select *
+        from fixtures
+        where date(match_time) = #{date}
+    </select>
+
     <!-- Update score for live game -->
     <update id="updateScore">
         UPDATE fixtures
