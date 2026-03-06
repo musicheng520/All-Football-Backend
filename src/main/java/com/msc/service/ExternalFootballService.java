@@ -13,9 +13,18 @@ public interface ExternalFootballService {
 
     void syncPlayerStats(Integer season);
 
+    void syncMatchEvents(Integer season);
+
+    void syncLineups(Integer season);
+
+
+    void syncMatchStatistics(Integer season);
+
     void refreshLiveSnapshotToRedis();
 
     String fetchLiveFixturesFilteredJson();
 
     String fetchFixtureById(Long fixtureId);
+
+
 }

@@ -10,8 +10,28 @@
     </delete>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        insert into lineups (fixture_id, team_id, formation, coach, created_at)
-        values (#{fixtureId}, #{teamId}, #{formation}, #{coach}, now())
+        insert into lineups
+            (fixture_id, team_id, formation, coach, created_at)
+        values
+            (#{fixtureId}, #{teamId}, #{formation}, #{coach}, now())
     </insert>
 
+    <insert id="insertBatch">
+
+        INSERT INTO lineups
+        (fixture_id, team_id, formation, coach, created_at)
+
+        VALUES
+
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.fixtureId},
+            #{item.teamId},
+            #{item.formation},
+            #{item.coach},
+            #{item.createdAt}
+            )
+        </foreach>
+
+    </insert>
 </mapper>

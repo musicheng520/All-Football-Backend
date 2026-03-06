@@ -139,6 +139,12 @@
         LIMIT #{offset}, #{size}
     </select>
 
+    <select id="findBySeason" resultType="com.msc.model.entity.Fixture">
+        SELECT *
+        FROM fixtures
+        WHERE season = #{season}
+    </select>
+
     <!-- Update score for live game -->
     <update id="updateScore">
         UPDATE fixtures

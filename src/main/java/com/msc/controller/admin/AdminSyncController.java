@@ -114,4 +114,31 @@ public class AdminSyncController {
 
         return Result.success("Match finalized: " + fixtureId);
     }
+
+    @PostMapping("/match-events")
+    public Result syncMatchEvents(@RequestParam Integer season) {
+
+        externalFootballService.syncMatchEvents(season);
+
+        return Result.success("Match events synced.");
+    }
+
+    @PostMapping("/lineups")
+    public Result syncLineups(@RequestParam Integer season) {
+
+        externalFootballService.syncLineups(season);
+
+        return Result.success("Lineups synced");
+    }
+
+
+
+    @PostMapping("/match-statistics")
+    public Result syncMatchStatistics(@RequestParam Integer season) {
+
+        externalFootballService.syncMatchStatistics(season);
+
+        return Result.success("Match statistics synced.");
+    }
+
 }

@@ -4,14 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.msc.config.FootballProperties;
-import com.msc.mapper.FixtureMapper;
-import com.msc.mapper.PlayerMapper;
-import com.msc.mapper.PlayerStatsMapper;
-import com.msc.model.entity.Fixture;
-import com.msc.model.entity.Player;
-import com.msc.model.entity.PlayerStats;
-import com.msc.model.entity.Team;
-import com.msc.mapper.TeamMapper;
+import com.msc.mapper.*;
+import com.msc.model.entity.*;
 import com.msc.realtime.delta.DeltaManager;
 import com.msc.service.ExternalFootballService;
 import com.msc.service.LivePushService;
@@ -29,6 +23,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +44,11 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
     private final LivePushService livePushService;
     @Lazy
     private final MatchFinalizeService matchFinalizeService;
+
+    private final MatchEventMapper matchEventMapper;
+    private final LineupPlayerMapper lineupPlayerMapper;
+    private final LineupMapper lineupMapper;
+    private final MatchStatisticMapper matchStatisticMapper;
 
     @Override
     public String fetchTeams(Long leagueId, Integer season) {
@@ -177,6 +177,264 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
         }
 
         System.out.println("[PlayerStatsSync] Completed season=" + season);
+    }
+
+    @Override
+    @Transactional
+    public void syncMatchEvents(Integer season) {
+
+        List<Fixture> fixtures = fixtureMapper.findBySeason(season);
+
+        int total = 0;
+
+        for (Fixture fixture : fixtures) {
+
+            try {
+
+                String json = fetchFixtureById(fixture.getId());
+
+                JsonNode root = objectMapper.readTree(json);
+                JsonNode events = root.get("response").get(0).get("events");
+
+                if (events == null) continue;
+
+                List<MatchEvent> list = new ArrayList<>();
+
+                for (JsonNode e : events) {
+
+                    MatchEvent event = new MatchEvent();
+
+                    event.setFixtureId(fixture.getId());
+                    event.setTeamId(longOrNull(e.get("team").get("id")));
+                    event.setPlayerId(longOrNull(e.get("player").get("id")));
+                    event.setAssistPlayerId(longOrNull(e.get("assist").get("id")));
+
+                    event.setType(textOrNull(e.get("type")));
+                    event.setDetail(textOrNull(e.get("detail")));
+
+                    event.setMinute(intOrNull(e.get("time").get("elapsed")));
+                    event.setExtraMinute(intOrNull(e.get("time").get("extra")));
+
+                    event.setCreatedAt(LocalDateTime.now());
+
+                    list.add(event);
+                }
+
+                if (!list.isEmpty()) {
+                    matchEventMapper.insertBatch(list);
+                    total += list.size();
+                }
+
+            } catch (Exception e) {
+                System.out.println("event sync fail fixture=" + fixture.getId());
+            }
+        }
+
+        System.out.println("[MatchEventsSync] synced=" + total);
+    }
+
+    @Override
+    @Transactional
+    public void syncLineups(Integer season) {
+
+        List<Fixture> fixtures = fixtureMapper.findBySeason(season);
+
+        int total = 0;
+
+        for (Fixture fixture : fixtures) {
+
+            try {
+
+                String json = fetchFixtureById(fixture.getId());
+
+                JsonNode root = objectMapper.readTree(json);
+
+                JsonNode lineups =
+                        root.get("response").get(0).get("lineups");
+
+                if (lineups == null) continue;
+
+                for (JsonNode l : lineups) {
+
+                    Long teamId = longOrNull(l.get("team").get("id"));
+                    String formation = textOrNull(l.get("formation"));
+                    String coach = textOrNull(l.get("coach").get("name"));
+
+                    // -------- insert lineup --------
+
+                    Lineup lineup = new Lineup();
+
+                    lineup.setFixtureId(fixture.getId());
+                    lineup.setTeamId(teamId);
+                    lineup.setFormation(formation);
+                    lineup.setCoach(coach);
+                    lineup.setCreatedAt(LocalDateTime.now());
+
+                    lineupMapper.insert(lineup);
+
+                    Long lineupId = lineup.getId();   // 关键
+
+                    List<LineupPlayer> players = new ArrayList<>();
+
+                    // -------- starting XI --------
+
+                    JsonNode startXI = l.get("startXI");
+
+                    if (startXI != null) {
+
+                        for (JsonNode p : startXI) {
+
+                            LineupPlayer lp = new LineupPlayer();
+
+                            lp.setLineupId(lineupId);
+                            lp.setPlayerId(longOrNull(p.get("player").get("id")));
+                            lp.setNumber(intOrNull(p.get("player").get("number")));
+                            lp.setPosition(textOrNull(p.get("player").get("pos")));
+
+                            lp.setIsStarting(1);
+                            lp.setCreatedAt(LocalDateTime.now());
+
+                            players.add(lp);
+                        }
+                    }
+
+                    // -------- substitutes --------
+
+                    JsonNode subs = l.get("substitutes");
+
+                    if (subs != null) {
+
+                        for (JsonNode p : subs) {
+
+                            LineupPlayer lp = new LineupPlayer();
+
+                            lp.setLineupId(lineupId);
+                            lp.setPlayerId(longOrNull(p.get("player").get("id")));
+                            lp.setNumber(intOrNull(p.get("player").get("number")));
+                            lp.setPosition(textOrNull(p.get("player").get("pos")));
+
+                            lp.setIsStarting(0);
+                            lp.setCreatedAt(LocalDateTime.now());
+
+                            players.add(lp);
+                        }
+                    }
+
+                    if (!players.isEmpty()) {
+
+                        lineupPlayerMapper.insertBatch(players);
+
+                        total += players.size();
+                    }
+                }
+
+            } catch (Exception e) {
+
+                System.out.println("lineup sync fail fixture=" + fixture.getId());
+            }
+        }
+
+        System.out.println("[LineupSync] synced players=" + total);
+    }
+
+
+
+    @Override
+    @Transactional
+    public void syncMatchStatistics(Integer season) {
+
+        List<Fixture> fixtures = fixtureMapper.findBySeason(season);
+
+        int count = 0;
+
+        for (Fixture fixture : fixtures) {
+
+            try {
+
+                String json = fetchFixtureById(fixture.getId());
+
+                JsonNode root = objectMapper.readTree(json);
+
+                JsonNode statistics =
+                        root.get("response").get(0).get("statistics");
+
+                if (statistics == null) continue;
+
+                List<MatchStatistic> list = new ArrayList<>();
+
+                for (JsonNode team : statistics) {
+
+                    Long teamId = longOrNull(team.get("team").get("id"));
+
+                    MatchStatistic stat = new MatchStatistic();
+
+                    stat.setFixtureId(fixture.getId());
+                    stat.setTeamId(teamId);
+
+                    JsonNode stats = team.get("statistics");
+
+                    for (JsonNode s : stats) {
+
+                        String type = textOrNull(s.get("type"));
+                        String value = textOrNull(s.get("value"));
+
+                        if (type == null) continue;
+
+                        switch (type) {
+
+                            case "Total Shots":
+                                stat.setShotsTotal(intOrNull(s.get("value")));
+                                break;
+
+                            case "Shots on Goal":
+                                stat.setShotsOnTarget(intOrNull(s.get("value")));
+                                break;
+
+                            case "Ball Possession":
+                                stat.setPossession(value);
+                                break;
+
+                            case "Fouls":
+                                stat.setFouls(intOrNull(s.get("value")));
+                                break;
+
+                            case "Corner Kicks":
+                                stat.setCorners(intOrNull(s.get("value")));
+                                break;
+
+                            case "Yellow Cards":
+                                stat.setYellowCards(intOrNull(s.get("value")));
+                                break;
+
+                            case "Red Cards":
+                                stat.setRedCards(intOrNull(s.get("value")));
+                                break;
+
+                            case "Offsides":
+                                stat.setOffsides(intOrNull(s.get("value")));
+                                break;
+                        }
+                    }
+
+                    stat.setCreatedAt(LocalDateTime.now());
+
+                    list.add(stat);
+                }
+
+                if (!list.isEmpty()) {
+
+                    matchStatisticMapper.insertBatch(list);
+
+                    count += list.size();
+                }
+
+            } catch (Exception e) {
+
+                System.out.println("stat sync fail fixture=" + fixture.getId());
+            }
+        }
+
+        System.out.println("[MatchStatisticsSync] synced=" + count);
     }
 
     @Override
@@ -509,6 +767,8 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
 
         return response.getBody();
     }
+
+
 
     @Override
     public void refreshLiveSnapshotToRedis() {

@@ -34,4 +34,6 @@ public interface FixtureMapper {
                      @Param("awayScore") Integer awayScore,
                      @Param("elapsed") Integer elapsed,
                      @Param("status") String status);
+
+    List<Fixture> findBySeason(Integer season);
 }
