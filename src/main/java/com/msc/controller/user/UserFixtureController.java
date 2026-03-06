@@ -4,6 +4,7 @@ import com.msc.model.entity.Fixture;
 import com.msc.result.PageResult;
 import com.msc.result.Result;
 import com.msc.service.FixtureService;
+import com.msc.service.UserFixtureQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserFixtureController {
 
     private final FixtureService fixtureService;
-
+    private final UserFixtureQueryService userFixtureQueryService;
     // 1. get by id
     @GetMapping("/{id}")
     public Result<Fixture> getById(@PathVariable Long id) {
@@ -28,8 +29,9 @@ public class UserFixtureController {
             @RequestParam(required = false) Long leagueId,
             @RequestParam(required = false) Integer season
     ) {
+
         return Result.success(
-                fixtureService.page(page, size, leagueId, season)
+                userFixtureQueryService.page(page, size, leagueId, season)
         );
     }
 }

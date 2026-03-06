@@ -818,6 +818,23 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
         return response.getBody();
     }
 
+    @Override
+    public String fetchFixturesBySeason(Long leagueId, Integer season) {
+
+        String url = "https://" + properties.getApi().getHost()
+                + "/fixtures?league=" + leagueId
+                + "&season=" + season;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("x-apisports-key", properties.getApi().getKey());
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<String> response =
+                restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+        return response.getBody();
+    }
 
 
     @Override

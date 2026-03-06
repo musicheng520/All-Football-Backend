@@ -30,4 +30,5 @@ public interface ExternalFootballService {
     String fetchFixtureById(Long fixtureId);
 
 
+    String fetchFixturesBySeason(Long leagueId, Integer season);
 }
