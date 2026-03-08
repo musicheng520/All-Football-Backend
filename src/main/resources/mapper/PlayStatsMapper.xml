@@ -27,4 +27,14 @@
                                  updated_at = NOW()
     </insert>
 
+    <select id="findByPlayerAndSeason" resultType="com.msc.model.entity.PlayerStats">
+
+        select *
+        from player_stats
+        where player_id = #{playerId}
+          and season = #{season}
+
+    </select>
+
+
 </mapper>

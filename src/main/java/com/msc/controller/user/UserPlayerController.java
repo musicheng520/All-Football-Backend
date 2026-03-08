@@ -1,9 +1,10 @@
 package com.msc.controller.user;
 
 import com.msc.model.entity.Player;
+import com.msc.model.vo.PlayerDetailVO;
 import com.msc.result.PageResult;
 import com.msc.result.Result;
-import com.msc.service.PlayerService;
+import com.msc.service.query.PlayerQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,24 +13,29 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class UserPlayerController {
 
-    private final PlayerService playerService;
+    private final PlayerQueryService playerQueryService;
 
-    // 1️ get by id
+    // player detail
     @GetMapping("/{id}")
-    public Result<Player> getById(@PathVariable Long id) {
-        return Result.success(playerService.findById(id));
+    public Result<PlayerDetailVO> detail(
+            @PathVariable Long id,
+            @RequestParam Integer season
+    ) {
+        return Result.success(
+                playerQueryService.getPlayerDetail(id, season)
+        );
     }
 
-    // 2. pagination & get by params
+    // player list
     @GetMapping
     public Result<PageResult<Player>> page(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) Long teamId,
-            @RequestParam(required = false) Integer season
+            @RequestParam Long teamId,
+            @RequestParam Integer season
     ) {
         return Result.success(
-                playerService.page(page, size, teamId, season)
+                playerQueryService.getPlayerList(page, size, teamId, season)
         );
     }
 }

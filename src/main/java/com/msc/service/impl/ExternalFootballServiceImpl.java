@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.msc.config.FootballProperties;
 import com.msc.mapper.*;
 import com.msc.model.entity.*;
+import com.msc.model.vo.PlayerDetailVO;
 import com.msc.model.vo.TeamDetailVO;
 import com.msc.model.vo.fixture.EventVO;
 import com.msc.model.vo.fixture.FixtureDetailVO;
@@ -1402,6 +1403,159 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
         vo.setRecentFixtures(null);
 
         return vo;
+    }
+
+    @Override
+    public PageResult<Player> fetchPlayersForQuery(
+            Long teamId,
+            Integer season,
+            int page,
+            int size
+    ) {
+
+        String json = fetchPlayers(teamId, season, page);
+
+        try {
+
+            JsonNode root = objectMapper.readTree(json);
+            JsonNode response = root.get("response");
+
+            List<Player> players = new ArrayList<>();
+
+            for (JsonNode item : response) {
+
+                JsonNode playerNode = item.get("player");
+
+                Player player = new Player();
+
+                player.setId(playerNode.get("id").asLong());
+                player.setName(playerNode.get("name").asText());
+                player.setAge(playerNode.get("age").asInt());
+                player.setNationality(playerNode.get("nationality").asText());
+                player.setPhoto(playerNode.get("photo").asText());
+
+                players.add(player);
+            }
+
+            int start = (page - 1) * size;
+            int end = Math.min(start + size, players.size());
+
+            List<Player> pageList = players.subList(start, end);
+
+            PageResult<Player> result = new PageResult<>();
+            result.setTotal(players.size());
+            result.setPage(page);
+            result.setSize(size);
+            result.setRecords(pageList);
+
+            return result;
+
+        } catch (Exception e) {
+            throw new RuntimeException("fetchPlayersForQuery failed", e);
+        }
+    }
+
+    @Override
+    public PlayerDetailVO fetchPlayerDetail(Long playerId, Integer season) {
+
+        String json = fetchPlayerById(playerId, season);
+
+        try {
+
+            JsonNode root = objectMapper.readTree(json);
+            JsonNode response = root.get("response");
+
+            if (response == null || response.isEmpty()) {
+                return null;
+            }
+
+            JsonNode item = response.get(0);
+
+            JsonNode playerNode = item.get("player");
+            JsonNode statsNode = item.get("statistics").get(0);
+
+            Player player = new Player();
+
+            player.setId(playerNode.get("id").asLong());
+            player.setName(playerNode.get("name").asText());
+            player.setAge(playerNode.get("age").asInt());
+            player.setNationality(playerNode.get("nationality").asText());
+            player.setPhoto(playerNode.get("photo").asText());
+
+            Team team = new Team();
+
+            JsonNode teamNode = statsNode.get("team");
+
+            team.setId(teamNode.get("id").asLong());
+            team.setName(teamNode.get("name").asText());
+            team.setLogo(teamNode.get("logo").asText());
+
+            PlayerStats stats = new PlayerStats();
+
+            stats.setSeason(season);
+
+            JsonNode games = statsNode.get("games");
+            JsonNode goals = statsNode.get("goals");
+
+            if (games != null) {
+                stats.setAppearances(games.get("appearences").asInt());
+            }
+
+            if (goals != null) {
+                stats.setGoals(goals.get("total").asInt());
+                stats.setAssists(goals.get("assists").asInt());
+            }
+
+            PlayerDetailVO vo = new PlayerDetailVO();
+
+            vo.setPlayer(player);
+            vo.setTeam(team);
+            vo.setStatistics(List.of(stats));
+
+            return vo;
+
+        } catch (Exception e) {
+            throw new RuntimeException("fetchPlayerDetail failed", e);
+        }
+    }
+
+    private String fetchPlayers(Long teamId, Integer season, int page) {
+
+        String url = "https://" + properties.getApi().getHost()
+                + "/players?team=" + teamId
+                + "&season=" + season
+                + "&page=" + page;
+
+        return restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                new HttpEntity<>(createHeaders()),
+                String.class
+        ).getBody();
+    }
+
+    private String fetchPlayerById(Long playerId, Integer season) {
+
+        String url = "https://" + properties.getApi().getHost()
+                + "/players?id=" + playerId
+                + "&season=" + season;
+
+        return restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                new HttpEntity<>(createHeaders()),
+                String.class
+        ).getBody();
+    }
+
+    private HttpHeaders createHeaders() {
+
+        HttpHeaders headers = new HttpHeaders();
+
+        headers.set("x-apisports-key", properties.getApi().getKey());
+        headers.set("x-apisports-host", properties.getApi().getHost());
+
+        return headers;
     }
 
     private Team fetchTeamInfo(Long teamId) {

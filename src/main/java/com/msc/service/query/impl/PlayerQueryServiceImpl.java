@@ -1,0 +1,164 @@
+package com.msc.service.query.impl;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.msc.config.FootballProperties;
+import com.msc.mapper.PlayerMapper;
+import com.msc.mapper.PlayerStatsMapper;
+import com.msc.mapper.TeamMapper;
+import com.msc.model.entity.Player;
+import com.msc.model.entity.PlayerStats;
+import com.msc.model.entity.Team;
+import com.msc.model.vo.PlayerDetailVO;
+import com.msc.result.PageResult;
+import com.msc.service.ExternalFootballService;
+import com.msc.service.query.PlayerQueryService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
+
+import java.time.Duration;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class PlayerQueryServiceImpl implements PlayerQueryService {
+
+    private final PlayerMapper playerMapper;
+    private final PlayerStatsMapper playerStatsMapper;
+    private final TeamMapper teamMapper;
+    private final ExternalFootballService externalFootballService;
+
+    private final StringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
+    private final FootballProperties footballProperties;
+
+    // ===============================
+    // player list
+    // ===============================
+    @Override
+    public PageResult<Player> getPlayerList(int page, int size, Long teamId, Integer season) {
+
+        String key = "players:" + teamId + ":" + season + ":" + page + ":" + size;
+
+        try {
+
+            String cache = redisTemplate.opsForValue().get(key);
+
+            if (cache != null) {
+
+                System.out.println("[RedisHit] " + key);
+
+                return objectMapper.readValue(
+                        cache,
+                        objectMapper.getTypeFactory()
+                                .constructParametricType(PageResult.class, Player.class)
+                );
+            }
+
+        } catch (Exception ignored) {}
+
+        System.out.println("[RedisMiss] " + key);
+
+        PageResult<Player> result;
+
+        // current season → MySQL
+        if (season.equals(footballProperties.getDefaultSeason())) {
+
+            List<Player> players = playerMapper.findByTeamId(teamId);
+
+            int start = (page - 1) * size;
+            int end = Math.min(start + size, players.size());
+
+            List<Player> pageList = players.subList(start, end);
+
+            result = new PageResult<>();
+            result.setTotal(players.size());
+            result.setPage(page);
+            result.setSize(size);
+            result.setRecords(pageList);
+
+        }
+        // history → API
+        else {
+
+            result = externalFootballService.fetchPlayersForQuery(
+                    teamId,
+                    season,
+                    page,
+                    size
+            );
+
+            try {
+
+                redisTemplate.opsForValue().set(
+                        key,
+                        objectMapper.writeValueAsString(result),
+                        Duration.ofHours(6)
+                );
+
+            } catch (Exception ignored) {}
+        }
+
+        return result;
+    }
+
+    // ===============================
+    // player detail
+    // ===============================
+    @Override
+    public PlayerDetailVO getPlayerDetail(Long playerId, Integer season) {
+
+        String key = "player:detail:" + playerId + ":" + season;
+
+        try {
+
+            String cache = redisTemplate.opsForValue().get(key);
+
+            if (cache != null) {
+
+                System.out.println("[RedisHit] " + key);
+
+                return objectMapper.readValue(cache, PlayerDetailVO.class);
+            }
+
+        } catch (Exception ignored) {}
+
+        System.out.println("[RedisMiss] " + key);
+
+        PlayerDetailVO vo;
+
+        // current season → MySQL
+        if (season.equals(footballProperties.getDefaultSeason())) {
+
+            Player player = playerMapper.findById(playerId);
+
+            Team team = teamMapper.findById(player.getTeamId());
+
+            List<PlayerStats> stats =
+                    playerStatsMapper.findByPlayerAndSeason(playerId, season);
+
+            vo = new PlayerDetailVO();
+            vo.setPlayer(player);
+            vo.setTeam(team);
+            vo.setStatistics(stats);
+
+        }
+        // history → API
+        else {
+
+            vo = externalFootballService.fetchPlayerDetail(playerId, season);
+
+            try {
+
+                redisTemplate.opsForValue().set(
+                        key,
+                        objectMapper.writeValueAsString(vo),
+                        Duration.ofHours(6)
+                );
+
+            } catch (Exception ignored) {}
+        }
+
+        return vo;
+    }
+}

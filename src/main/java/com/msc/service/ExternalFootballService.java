@@ -1,6 +1,8 @@
 package com.msc.service;
 
+import com.msc.model.entity.Player;
 import com.msc.model.entity.Team;
+import com.msc.model.vo.PlayerDetailVO;
 import com.msc.model.vo.TeamDetailVO;
 import com.msc.model.vo.fixture.FixtureDetailVO;
 import com.msc.result.PageResult;
@@ -43,4 +45,16 @@ public interface ExternalFootballService {
     FixtureDetailVO fetchHistoricalFixtureDetail(Long fixtureId);
 
     TeamDetailVO fetchTeamDetail(Long teamId, Integer season);
+
+    PageResult<Player> fetchPlayersForQuery(
+            Long teamId,
+            Integer season,
+            int page,
+            int size
+    );
+
+    PlayerDetailVO fetchPlayerDetail(
+            Long playerId,
+            Integer season
+    );
 }
