@@ -151,6 +151,18 @@
         where date(match_time) = #{date}
     </select>
 
+    <select id="findRecentByTeamId" resultType="com.msc.model.entity.Fixture">
+
+        SELECT *
+        FROM fixtures
+        WHERE home_team_id = #{teamId}
+           OR away_team_id = #{teamId}
+        ORDER BY match_time DESC
+            LIMIT 10
+
+    </select>
+
+
     <!-- Update score for live game -->
     <update id="updateScore">
         UPDATE fixtures

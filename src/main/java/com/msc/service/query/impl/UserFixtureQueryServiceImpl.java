@@ -1,4 +1,4 @@
-package com.msc.service.impl;
+package com.msc.service.query.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,7 +8,7 @@ import com.msc.model.vo.fixture.FixtureDetailVO;
 import com.msc.result.PageResult;
 import com.msc.service.ExternalFootballService;
 import com.msc.service.FixtureService;
-import com.msc.service.UserFixtureQueryService;
+import com.msc.service.query.UserFixtureQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;

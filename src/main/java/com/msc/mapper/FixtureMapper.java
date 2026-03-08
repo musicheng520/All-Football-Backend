@@ -39,4 +39,6 @@ public interface FixtureMapper {
     List<Fixture> findBySeason(Integer season);
 
     List<Fixture> findByDate(LocalDate date);
+
+    List<Fixture> findRecentByTeamId(Long teamId);
 }

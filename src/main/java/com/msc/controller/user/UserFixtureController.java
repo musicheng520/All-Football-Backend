@@ -5,7 +5,7 @@ import com.msc.model.vo.fixture.FixtureDetailVO;
 import com.msc.result.PageResult;
 import com.msc.result.Result;
 import com.msc.service.FixtureService;
-import com.msc.service.UserFixtureQueryService;
+import com.msc.service.query.UserFixtureQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 

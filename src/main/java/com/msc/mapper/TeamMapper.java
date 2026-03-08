@@ -1,6 +1,7 @@
 package com.msc.mapper;
 
 import com.msc.model.entity.Team;
+import com.msc.result.PageResult;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -9,6 +10,7 @@ import java.util.List;
 @Mapper
 public interface TeamMapper {
     Team findById(Long id);
+
 
     List<Team> findBySeason(Integer season);
 

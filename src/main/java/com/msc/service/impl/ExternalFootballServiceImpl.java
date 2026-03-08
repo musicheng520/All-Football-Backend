@@ -6,11 +6,13 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.msc.config.FootballProperties;
 import com.msc.mapper.*;
 import com.msc.model.entity.*;
+import com.msc.model.vo.TeamDetailVO;
 import com.msc.model.vo.fixture.EventVO;
 import com.msc.model.vo.fixture.FixtureDetailVO;
 import com.msc.model.vo.fixture.LineupVO;
 import com.msc.model.vo.fixture.StatisticVO;
 import com.msc.realtime.delta.DeltaManager;
+import com.msc.result.PageResult;
 import com.msc.service.ExternalFootballService;
 import com.msc.service.LivePushService;
 import com.msc.service.MatchFinalizeService;
@@ -71,6 +73,66 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
         return response.getBody();
     }
 
+    @Override
+    public PageResult<Team> fetchTeamsForQuery(Long leagueId, Integer season, int page, int size) {
+
+        String json = fetchTeams(leagueId, season);
+
+        try {
+            JsonNode root = objectMapper.readTree(json);
+            JsonNode response = root.get("response");
+
+            List<Team> teams = new ArrayList<>();
+
+            if (response != null && response.isArray()) {
+                for (JsonNode item : response) {
+
+                    JsonNode teamNode = item.get("team");
+                    JsonNode venueNode = item.get("venue");
+
+                    if (teamNode == null || teamNode.get("id") == null) {
+                        continue;
+                    }
+
+                    Team team = new Team();
+
+                    team.setId(teamNode.get("id").asLong());
+                    team.setName(textOrNull(teamNode.get("name")));
+                    team.setCode(textOrNull(teamNode.get("code")));
+                    team.setCountry(textOrNull(teamNode.get("country")));
+                    team.setFounded(intOrNull(teamNode.get("founded")));
+                    team.setLogo(textOrNull(teamNode.get("logo")));
+
+                    if (venueNode != null && !venueNode.isNull()) {
+                        team.setVenueId(longOrNull(venueNode.get("id")));
+                        team.setVenueName(textOrNull(venueNode.get("name")));
+                        team.setVenueCity(textOrNull(venueNode.get("city")));
+                        team.setVenueCapacity(intOrNull(venueNode.get("capacity")));
+                        team.setVenueSurface(textOrNull(venueNode.get("surface")));
+                        team.setVenueImage(textOrNull(venueNode.get("image")));
+                    }
+
+                    team.setLeagueId(leagueId);
+                    team.setSeason(season);
+
+                    teams.add(team);
+                }
+            }
+
+            int start = (page - 1) * size;
+            if (start >= teams.size()) {
+                return new PageResult<>(teams.size(), page, size, List.of());
+            }
+
+            int end = Math.min(start + size, teams.size());
+            List<Team> pageList = teams.subList(start, end);
+
+            return new PageResult<>(teams.size(), page, size, pageList);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Historical team query failed", e);
+        }
+    }
 
     @Override
     @Transactional
@@ -1324,6 +1386,123 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
         } catch (Exception e) {
 
             throw new RuntimeException("Historical fixture detail query failed", e);
+        }
+    }
+
+    @Override
+    public TeamDetailVO fetchTeamDetail(Long teamId, Integer season) {
+
+        Team team = fetchTeamInfo(teamId);
+
+        List<Player> squad = fetchTeamSquad(teamId);
+
+        TeamDetailVO vo = new TeamDetailVO();
+        vo.setTeam(team);
+        vo.setSquad(squad);
+        vo.setRecentFixtures(null);
+
+        return vo;
+    }
+
+    private Team fetchTeamInfo(Long teamId) {
+
+        String url = "https://" + properties.getApi().getHost()
+                + "/teams?id=" + teamId;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("x-apisports-key", properties.getApi().getKey());
+        headers.set("x-apisports-host", properties.getApi().getHost());
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<String> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                entity,
+                String.class
+        );
+
+        String body = response.getBody();
+
+        try {
+
+            JsonNode root = objectMapper.readTree(body);
+
+            JsonNode resp = root.path("response");
+
+            if (resp.isEmpty()) {
+                throw new RuntimeException("Team not found: " + teamId);
+            }
+
+            JsonNode item = resp.get(0);
+
+            JsonNode teamNode = item.path("team");
+            JsonNode venueNode = item.path("venue");
+
+            Team team = new Team();
+
+            team.setId(teamNode.path("id").asLong());
+            team.setName(teamNode.path("name").asText());
+            team.setLogo(teamNode.path("logo").asText());
+            team.setCountry(teamNode.path("country").asText(null));
+            team.setFounded(teamNode.path("founded").asInt());
+
+            team.setVenueName(venueNode.path("name").asText(null));
+            team.setVenueCity(venueNode.path("city").asText(null));
+            team.setVenueCapacity(venueNode.path("capacity").asInt());
+
+            return team;
+
+        } catch (Exception e) {
+            throw new RuntimeException("fetchTeamInfo failed", e);
+        }
+    }
+
+    private List<Player> fetchTeamSquad(Long teamId) {
+
+        String url = "https://" + properties.getApi().getHost()
+                + "/players/squads?team=" + teamId;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("x-apisports-key", properties.getApi().getKey());
+        headers.set("x-apisports-host", properties.getApi().getHost());
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<String> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                entity,
+                String.class
+        );
+
+        String body = response.getBody();
+
+        try {
+
+            JsonNode root = objectMapper.readTree(body);
+
+            List<Player> players = new ArrayList<>();
+
+            JsonNode squadNode = root.path("response").get(0).path("players");
+
+            for (JsonNode p : squadNode) {
+
+                Player player = new Player();
+
+                player.setId(p.path("id").asLong());
+                player.setName(p.path("name").asText());
+                player.setAge(p.path("age").asInt());
+                player.setNationality(p.path("nationality").asText(null));
+                player.setPhoto(p.path("photo").asText(null));
+
+                players.add(player);
+            }
+
+            return players;
+
+        } catch (Exception e) {
+            throw new RuntimeException("fetchTeamSquad failed", e);
         }
     }
 

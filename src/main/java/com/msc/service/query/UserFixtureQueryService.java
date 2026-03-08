@@ -1,4 +1,4 @@
-package com.msc.service;
+package com.msc.service.query;
 
 import com.msc.model.entity.Fixture;
 import com.msc.model.vo.fixture.FixtureDetailVO;

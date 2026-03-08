@@ -3,6 +3,7 @@ package com.msc.mapper;
 import com.msc.model.entity.Player;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 @Mapper
@@ -29,4 +30,7 @@ public interface PlayerMapper {
                           @Param("size") int size,
                           @Param("teamId") Long teamId,
                           @Param("season") Integer season);
+
+    @Select("select *from players where team_id = #{teamId}")
+    List<Player> findByTeamId(Long teamId);
 }
