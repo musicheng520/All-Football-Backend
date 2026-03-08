@@ -2,7 +2,9 @@ package com.msc.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.msc.config.FootballProperties;
 import com.msc.model.entity.Fixture;
+import com.msc.model.vo.fixture.FixtureDetailVO;
 import com.msc.result.PageResult;
 import com.msc.service.ExternalFootballService;
 import com.msc.service.FixtureService;
@@ -23,17 +25,19 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
     private final ExternalFootballService externalFootballService;
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
+    private final FootballProperties footballProperties;
 
-    private static final Integer CURRENT_SEASON = 2025;
-
+    /**
+     * Fixture page query
+     */
     @Override
     public PageResult<Fixture> page(int page,
                                     int size,
                                     Long leagueId,
                                     Integer season) {
 
-        // 1 current season → MySQL
-        if (season == null || season.equals(CURRENT_SEASON)) {
+        // current season → MySQL
+        if (season == null || season.equals(footballProperties.getDefaultSeason())) {
 
             return fixtureService.page(page, size, leagueId, season);
         }
@@ -42,7 +46,7 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
 
         try {
 
-            // 2 Redis read
+            // Redis
             String cache = stringRedisTemplate.opsForValue().get(key);
 
             if (cache != null) {
@@ -58,7 +62,7 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
 
             System.out.println("[RedisMiss] " + key);
 
-            // 3 call API
+            // External API
             String json = externalFootballService.fetchFixturesBySeason(leagueId, season);
 
             JsonNode root = objectMapper.readTree(json);
@@ -79,19 +83,14 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
 
                     Fixture f = new Fixture();
 
-                    // fixture id
                     f.setId(fixtureNode.get("id").asLong());
-
-                    // league + season
                     f.setLeagueId(leagueId);
                     f.setSeason(season);
 
-                    // round
                     if (leagueNode != null && leagueNode.get("round") != null) {
                         f.setRound(leagueNode.get("round").asText());
                     }
 
-                    // teams
                     f.setHomeTeamId(
                             teamsNode.get("home").get("id").asLong()
                     );
@@ -100,7 +99,6 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
                             teamsNode.get("away").get("id").asLong()
                     );
 
-                    // goals
                     if (goalsNode != null) {
 
                         if (!goalsNode.get("home").isNull()) {
@@ -112,24 +110,20 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
                         }
                     }
 
-                    // match time
                     if (fixtureNode.get("date") != null) {
-
-                        String date = fixtureNode.get("date").asText();
 
                         try {
                             f.setMatchTime(
                                     java.time.OffsetDateTime
-                                            .parse(date)
+                                            .parse(fixtureNode.get("date").asText())
                                             .toLocalDateTime()
                             );
                         } catch (Exception ignored) {}
                     }
 
-                    // status
-                    if (fixtureNode.get("status") != null) {
+                    JsonNode statusNode = fixtureNode.get("status");
 
-                        JsonNode statusNode = fixtureNode.get("status");
+                    if (statusNode != null) {
 
                         if (statusNode.get("short") != null) {
                             f.setStatus(statusNode.get("short").asText());
@@ -140,12 +134,10 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
                         }
                     }
 
-                    // referee
                     if (fixtureNode.get("referee") != null && !fixtureNode.get("referee").isNull()) {
                         f.setReferee(fixtureNode.get("referee").asText());
                     }
 
-                    // venue
                     if (fixtureNode.get("venue") != null) {
 
                         JsonNode venueNode = fixtureNode.get("venue");
@@ -159,7 +151,6 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
                 }
             }
 
-            // 4 pagination
             int start = (page - 1) * size;
             int end = Math.min(start + size, list.size());
 
@@ -168,7 +159,6 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
             PageResult<Fixture> result =
                     new PageResult<>(list.size(), page, size, pageList);
 
-            // 5 save redis
             stringRedisTemplate.opsForValue()
                     .set(key,
                             objectMapper.writeValueAsString(result),
@@ -179,6 +169,55 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
         } catch (Exception e) {
 
             throw new RuntimeException("Historical fixture query failed", e);
+        }
+    }
+
+    /**
+     * Fixture detail query
+     */
+    @Override
+    public FixtureDetailVO getFixtureDetail(Long fixtureId) {
+
+        String key = "fixture:detail:" + fixtureId;
+
+        try {
+
+            String cache = stringRedisTemplate.opsForValue().get(key);
+
+            if (cache != null) {
+                System.out.println("[RedisHit] " + key);
+                return objectMapper.readValue(cache, FixtureDetailVO.class);
+            }
+
+            System.out.println("[RedisMiss] " + key);
+
+            Fixture fixture = fixtureService.findById(fixtureId);
+
+            FixtureDetailVO vo;
+
+            // 当前赛季：数据库里能找到，并且 season = defaultSeason
+            if (fixture != null
+                    && fixture.getSeason() != null
+                    && fixture.getSeason().equals(footballProperties.getDefaultSeason())) {
+
+                vo = externalFootballService.buildFixtureDetailFromDb(fixtureId);
+
+            } else {
+                // 历史赛季：数据库找不到 or 非当前赛季
+                vo = externalFootballService.fetchHistoricalFixtureDetail(fixtureId);
+            }
+
+            if (vo != null) {
+                stringRedisTemplate.opsForValue()
+                        .set(key,
+                                objectMapper.writeValueAsString(vo),
+                                Duration.ofHours(12));
+            }
+
+            return vo;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Fixture detail query failed", e);
         }
     }
 }

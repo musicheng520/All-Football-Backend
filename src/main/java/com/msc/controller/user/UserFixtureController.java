@@ -1,6 +1,7 @@
 package com.msc.controller.user;
 
 import com.msc.model.entity.Fixture;
+import com.msc.model.vo.fixture.FixtureDetailVO;
 import com.msc.result.PageResult;
 import com.msc.result.Result;
 import com.msc.service.FixtureService;
@@ -15,11 +16,6 @@ public class UserFixtureController {
 
     private final FixtureService fixtureService;
     private final UserFixtureQueryService userFixtureQueryService;
-    // 1. get by id
-    @GetMapping("/{id}")
-    public Result<Fixture> getById(@PathVariable Long id) {
-        return Result.success(fixtureService.findById(id));
-    }
 
     // pagination + query by params
     @GetMapping
@@ -32,6 +28,14 @@ public class UserFixtureController {
 
         return Result.success(
                 userFixtureQueryService.page(page, size, leagueId, season)
+        );
+    }
+
+    @GetMapping("/{id}")
+    public Result<FixtureDetailVO> getDetail(@PathVariable Long id) {
+
+        return Result.success(
+                userFixtureQueryService.getFixtureDetail(id)
         );
     }
 }

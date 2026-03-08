@@ -1,6 +1,7 @@
 package com.msc.service;
 
 import com.msc.model.entity.Fixture;
+import com.msc.model.vo.fixture.FixtureDetailVO;
 import com.msc.result.PageResult;
 
 public interface UserFixtureQueryService {
@@ -8,4 +9,6 @@ public interface UserFixtureQueryService {
                              int size,
                              Long leagueId,
                              Integer season);
+
+    FixtureDetailVO getFixtureDetail(Long fixtureId);
 }

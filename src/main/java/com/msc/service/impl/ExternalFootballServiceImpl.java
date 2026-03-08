@@ -6,6 +6,10 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.msc.config.FootballProperties;
 import com.msc.mapper.*;
 import com.msc.model.entity.*;
+import com.msc.model.vo.fixture.EventVO;
+import com.msc.model.vo.fixture.FixtureDetailVO;
+import com.msc.model.vo.fixture.LineupVO;
+import com.msc.model.vo.fixture.StatisticVO;
 import com.msc.realtime.delta.DeltaManager;
 import com.msc.service.ExternalFootballService;
 import com.msc.service.LivePushService;
@@ -837,6 +841,8 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
     }
 
 
+
+
     @Override
     public void refreshLiveSnapshotToRedis() {
 
@@ -937,6 +943,436 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public FixtureDetailVO buildFixtureDetailFromDb(Long fixtureId) {
+
+        Fixture fixture = fixtureMapper.findById(fixtureId);
+
+        if (fixture == null) {
+            return null;
+        }
+
+        FixtureDetailVO vo = new FixtureDetailVO();
+        vo.setFixture(fixture);
+
+        // teams
+        Team homeTeam = teamMapper.findById(fixture.getHomeTeamId());
+        Team awayTeam = teamMapper.findById(fixture.getAwayTeamId());
+
+        vo.setHomeTeam(homeTeam);
+        vo.setAwayTeam(awayTeam);
+
+        // ---------- lineups ----------
+        List<Lineup> lineups = lineupMapper.findByFixtureId(fixtureId);
+        List<LineupPlayer> lineupPlayers = lineupPlayerMapper.findByFixtureId(fixtureId);
+
+        for (Lineup l : lineups) {
+
+            LineupVO lineupVO = new LineupVO();
+            lineupVO.setTeamId(l.getTeamId());
+            lineupVO.setFormation(l.getFormation());
+            lineupVO.setCoach(l.getCoach());
+
+            List<LineupPlayer> starting = new ArrayList<>();
+            List<LineupPlayer> subs = new ArrayList<>();
+
+            for (LineupPlayer p : lineupPlayers) {
+                if (!p.getLineupId().equals(l.getId())) continue;
+
+                if (p.getIsStarting() != null && p.getIsStarting() == 1) {
+                    starting.add(p);
+                } else {
+                    subs.add(p);
+                }
+            }
+
+            lineupVO.setStartingXI(starting);
+            lineupVO.setSubstitutes(subs);
+
+            if (l.getTeamId().equals(fixture.getHomeTeamId())) {
+                vo.setHomeLineup(lineupVO);
+            } else {
+                vo.setAwayLineup(lineupVO);
+            }
+        }
+
+        // ---------- events ----------
+        List<MatchEvent> events = matchEventMapper.findByFixtureId(fixtureId);
+        List<EventVO> eventVOList = new ArrayList<>();
+
+        for (MatchEvent e : events) {
+
+            EventVO ev = new EventVO();
+
+            ev.setMinute(e.getMinute());
+            ev.setTeamId(e.getTeamId());
+
+            ev.setPlayerId(e.getPlayerId());
+            ev.setAssistPlayerId(e.getAssistPlayerId());
+
+            if (e.getPlayerId() != null) {
+                Player p = playerMapper.findById(e.getPlayerId());
+                if (p != null) ev.setPlayerName(p.getName());
+            }
+
+            if (e.getAssistPlayerId() != null) {
+                Player p = playerMapper.findById(e.getAssistPlayerId());
+                if (p != null) ev.setAssistPlayerName(p.getName());
+            }
+
+            ev.setType(e.getType());
+            ev.setDetail(e.getDetail());
+
+            eventVOList.add(ev);
+        }
+
+        vo.setEvents(eventVOList);
+
+        // ---------- statistics ----------
+        List<MatchStatistic> stats = matchStatisticMapper.findByFixtureId(fixtureId);
+
+        StatisticVO statisticVO = new StatisticVO();
+
+        for (MatchStatistic s : stats) {
+            if (s.getTeamId().equals(fixture.getHomeTeamId())) {
+                statisticVO.setHome(s);
+            } else if (s.getTeamId().equals(fixture.getAwayTeamId())) {
+                statisticVO.setAway(s);
+            }
+        }
+
+        vo.setStatistics(statisticVO);
+
+        return vo;
+    }
+    @Override
+    public FixtureDetailVO fetchHistoricalFixtureDetail(Long fixtureId) {
+
+        try {
+
+            // 1 基础比赛信息
+            String fixtureJson = fetchFixtureById(fixtureId);
+
+            JsonNode root = objectMapper.readTree(fixtureJson);
+            JsonNode response = root.get("response");
+
+            if (response == null || response.isEmpty()) {
+                return null;
+            }
+
+            JsonNode item = response.get(0);
+
+            JsonNode fixtureNode = item.get("fixture");
+            JsonNode leagueNode = item.get("league");
+            JsonNode teamsNode = item.get("teams");
+            JsonNode goalsNode = item.get("goals");
+
+            Fixture fixture = new Fixture();
+
+            fixture.setId(fixtureNode.get("id").asLong());
+
+            if (leagueNode != null) {
+                fixture.setLeagueId(leagueNode.get("id").asLong());
+                fixture.setSeason(leagueNode.get("season").asInt());
+                fixture.setRound(leagueNode.get("round").asText());
+            }
+
+            if (teamsNode != null) {
+                fixture.setHomeTeamId(teamsNode.get("home").get("id").asLong());
+                fixture.setAwayTeamId(teamsNode.get("away").get("id").asLong());
+            }
+
+            if (goalsNode != null) {
+                if (!goalsNode.get("home").isNull()) {
+                    fixture.setHomeScore(goalsNode.get("home").asInt());
+                }
+                if (!goalsNode.get("away").isNull()) {
+                    fixture.setAwayScore(goalsNode.get("away").asInt());
+                }
+            }
+
+            if (fixtureNode.get("date") != null) {
+                fixture.setMatchTime(
+                        OffsetDateTime.parse(fixtureNode.get("date").asText())
+                                .toLocalDateTime()
+                );
+            }
+
+            if (fixtureNode.get("referee") != null && !fixtureNode.get("referee").isNull()) {
+                fixture.setReferee(fixtureNode.get("referee").asText());
+            }
+
+            if (fixtureNode.get("venue") != null) {
+                JsonNode venue = fixtureNode.get("venue");
+                if (venue.get("name") != null && !venue.get("name").isNull()) {
+                    fixture.setVenue(venue.get("name").asText());
+                }
+            }
+
+            JsonNode statusNode = fixtureNode.get("status");
+
+            if (statusNode != null) {
+                fixture.setStatus(statusNode.get("short").asText());
+
+                if (!statusNode.get("elapsed").isNull()) {
+                    fixture.setElapsed(statusNode.get("elapsed").asInt());
+                }
+            }
+
+            FixtureDetailVO vo = new FixtureDetailVO();
+            vo.setFixture(fixture);
+
+            // 2 teams
+            if (teamsNode != null) {
+
+                JsonNode home = teamsNode.get("home");
+                JsonNode away = teamsNode.get("away");
+
+                Team homeTeam = new Team();
+                homeTeam.setId(home.get("id").asLong());
+                homeTeam.setName(home.get("name").asText());
+                homeTeam.setLogo(home.get("logo").asText());
+
+                Team awayTeam = new Team();
+                awayTeam.setId(away.get("id").asLong());
+                awayTeam.setName(away.get("name").asText());
+                awayTeam.setLogo(away.get("logo").asText());
+
+                vo.setHomeTeam(homeTeam);
+                vo.setAwayTeam(awayTeam);
+            }
+
+            // 3 lineups
+            String lineupJson = fetchFixtureLineups(fixtureId);
+
+            JsonNode lineupRoot = objectMapper.readTree(lineupJson);
+            JsonNode lineupResp = lineupRoot.get("response");
+
+            if (lineupResp != null && lineupResp.isArray()) {
+
+                List<Lineup> lineups = new ArrayList<>();
+
+                for (JsonNode node : lineupResp) {
+
+                    Lineup lineup = new Lineup();
+
+                    lineup.setFixtureId(fixtureId);
+
+                    JsonNode team = node.get("team");
+
+                    if (team != null) {
+                        lineup.setTeamId(team.get("id").asLong());
+                    }
+
+                    if (node.get("formation") != null) {
+                        lineup.setFormation(node.get("formation").asText());
+                    }
+
+                    if (node.get("coach") != null && node.get("coach").get("name") != null) {
+                        lineup.setCoach(node.get("coach").get("name").asText());
+                    }
+
+                    lineups.add(lineup);
+                }
+
+                LineupVO homeLineup = null;
+                LineupVO awayLineup = null;
+
+                for (JsonNode node : lineupResp) {
+
+                    LineupVO lineup = new LineupVO();
+
+                    JsonNode team = node.get("team");
+
+                    Long teamId = team.get("id").asLong();
+
+                    lineup.setTeamId(teamId);
+                    lineup.setFormation(textOrNull(node.get("formation")));
+
+                    if (node.get("coach") != null) {
+                        lineup.setCoach(textOrNull(node.get("coach").get("name")));
+                    }
+
+                    if (teamId.equals(fixture.getHomeTeamId())) {
+                        homeLineup = lineup;
+                    } else {
+                        awayLineup = lineup;
+                    }
+                }
+
+                vo.setHomeLineup(homeLineup);
+                vo.setAwayLineup(awayLineup);
+            }
+
+            // 4 events
+            String eventsJson = fetchFixtureEvents(fixtureId);
+
+            JsonNode eventRoot = objectMapper.readTree(eventsJson);
+            JsonNode eventResp = eventRoot.get("response");
+
+            if (eventResp != null && eventResp.isArray()) {
+
+                List<EventVO> events = new ArrayList<>();
+
+                for (JsonNode node : eventResp) {
+
+                    EventVO event = new EventVO();
+
+                    if (node.get("time") != null) {
+                        event.setMinute(intOrNull(node.get("time").get("elapsed")));
+                    }
+
+                    if (node.get("team") != null) {
+                        event.setTeamId(longOrNull(node.get("team").get("id")));
+                    }
+
+                    if (node.get("player") != null) {
+                        event.setPlayerId(longOrNull(node.get("player").get("id")));
+                        event.setPlayerName(textOrNull(node.get("player").get("name")));
+                    }
+
+                    if (node.get("assist") != null) {
+                        event.setAssistPlayerId(longOrNull(node.get("assist").get("id")));
+                        event.setAssistPlayerName(textOrNull(node.get("assist").get("name")));
+                    }
+
+                    event.setType(textOrNull(node.get("type")));
+                    event.setDetail(textOrNull(node.get("detail")));
+
+                    events.add(event);
+                }
+
+                vo.setEvents(events);
+            }
+
+            // 5 statistics
+            String statJson = fetchFixtureStatistics(fixtureId);
+
+            JsonNode statRoot = objectMapper.readTree(statJson);
+            JsonNode statResp = statRoot.get("response");
+
+            if (statResp != null && statResp.isArray()) {
+
+                StatisticVO statisticVO = new StatisticVO();
+
+                for (JsonNode node : statResp) {
+
+                    MatchStatistic stat = new MatchStatistic();
+
+                    stat.setFixtureId(fixtureId);
+                    stat.setTeamId(longOrNull(node.get("team").get("id")));
+
+                    JsonNode statistics = node.get("statistics");
+
+                    for (JsonNode s : statistics) {
+
+                        String type = textOrNull(s.get("type"));
+                        JsonNode value = s.get("value");
+
+                        if (type == null || value == null || value.isNull()) continue;
+
+                        switch (type) {
+
+                            case "Total Shots":
+                                stat.setShotsTotal(intOrNull(value));
+                                break;
+
+                            case "Shots on Goal":
+                                stat.setShotsOnTarget(intOrNull(value));
+                                break;
+
+                            case "Ball Possession":
+                                stat.setPossession(value.asText());
+                                break;
+
+                            case "Corner Kicks":
+                                stat.setCorners(intOrNull(value));
+                                break;
+
+                            case "Fouls":
+                                stat.setFouls(intOrNull(value));
+                                break;
+
+                            case "Yellow Cards":
+                                stat.setYellowCards(intOrNull(value));
+                                break;
+
+                            case "Red Cards":
+                                stat.setRedCards(intOrNull(value));
+                                break;
+
+                            case "Offsides":
+                                stat.setOffsides(intOrNull(value));
+                                break;
+                        }
+                    }
+
+                    if (stat.getTeamId().equals(fixture.getHomeTeamId())) {
+                        statisticVO.setHome(stat);
+                    } else {
+                        statisticVO.setAway(stat);
+                    }
+                }
+
+                vo.setStatistics(statisticVO);
+            }
+
+            return vo;
+
+        } catch (Exception e) {
+
+            throw new RuntimeException("Historical fixture detail query failed", e);
+        }
+    }
+
+    private String fetchFixtureStatistics(Long fixtureId) {
+
+        String url = "https://" + properties.getApi().getHost()
+                + "/fixtures/statistics?fixture=" + fixtureId;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("x-apisports-key", properties.getApi().getKey());
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<String> response =
+                restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+        return response.getBody();
+    }
+
+    private String fetchFixtureEvents(Long fixtureId) {
+
+        String url = "https://" + properties.getApi().getHost()
+                + "/fixtures/events?fixture=" + fixtureId;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("x-apisports-key", properties.getApi().getKey());
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<String> response =
+                restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+        return response.getBody();
+    }
+
+    private String fetchFixtureLineups(Long fixtureId) {
+
+        String url = "https://" + properties.getApi().getHost()
+                + "/fixtures/lineups?fixture=" + fixtureId;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("x-apisports-key", properties.getApi().getKey());
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<String> response =
+                restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+        return response.getBody();
     }
 
     private JsonNode findMatchById(JsonNode snapshot, long fixtureId) {

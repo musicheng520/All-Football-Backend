@@ -1,5 +1,7 @@
 package com.msc.service;
 
+import com.msc.model.vo.fixture.FixtureDetailVO;
+
 public interface ExternalFootballService {
     String fetchTeams(Long leagueId, Integer season);
 
@@ -31,4 +33,8 @@ public interface ExternalFootballService {
 
 
     String fetchFixturesBySeason(Long leagueId, Integer season);
+
+    FixtureDetailVO buildFixtureDetailFromDb(Long fixtureId);
+
+    FixtureDetailVO fetchHistoricalFixtureDetail(Long fixtureId);
 }
