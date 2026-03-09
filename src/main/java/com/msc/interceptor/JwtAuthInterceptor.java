@@ -25,10 +25,16 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
 
         String uri = request.getRequestURI();
 
-        if (uri.startsWith("/auth")) {
+        // 1 Public APIs (no login required)
+        if (uri.startsWith("/auth")
+                || uri.startsWith("/fixtures")
+                || uri.startsWith("/teams")
+                || uri.startsWith("/players")
+                || uri.startsWith("/news")) {
             return true;
         }
 
+        // 2 Require login
         String header = request.getHeader("Authorization");
 
         if (header == null || !header.startsWith("Bearer ")) {
@@ -39,7 +45,9 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
         String token = header.substring(7);
 
         try {
+
             Claims claims = jwtUtil.parseToken(token);
+
             Long userId = Long.valueOf(claims.getSubject());
             String role = (String) claims.get("role");
 
@@ -51,19 +59,14 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
                 return false;
             }
 
+            // 3 Admin API check
             if (uri.startsWith("/admin") && !"ADMIN".equals(role)) {
                 response.setStatus(403);
                 return false;
             }
 
-            System.out.println("URI: " + uri);
-            System.out.println("Header: " + header);
-            System.out.println("Token: " + token);
-            System.out.println("UserId: " + userId);
-            System.out.println("Role: " + role);
-            System.out.println("RedisToken: " + redisToken);
-
             ThreadLocalUtil.set(userId);
+
             return true;
 
         } catch (Exception e) {
