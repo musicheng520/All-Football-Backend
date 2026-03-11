@@ -28,4 +28,6 @@ public interface TeamMapper {
                         @Param("size") int size);
 
     void upsert(Team team);
+
+    List<Team> findByLeagueAndSeason(Long leagueId, Integer season);
 }

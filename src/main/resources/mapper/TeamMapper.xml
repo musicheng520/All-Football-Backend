@@ -120,5 +120,11 @@
             #{id}
         </foreach>
     </select>
+    <select id="findByLeagueAndSeason" resultType="com.msc.model.entity.Team">
+        SELECT *
+        FROM teams
+        WHERE league_id = #{leagueId}
+          AND season = #{season}
+    </select>
 
 </mapper>

@@ -55,7 +55,7 @@ public class TeamQueryServiceImpl implements TeamQueryService {
         // 当前赛季 → MySQL
         if (season.equals(footballProperties.getDefaultSeason())) {
 
-            List<Team> teams = teamMapper.findBySeason(season);
+            List<Team> teams = teamMapper.findByLeagueAndSeason(leagueId, season);
 
             int start = (page - 1) * size;
             int end = Math.min(start + size, teams.size());
