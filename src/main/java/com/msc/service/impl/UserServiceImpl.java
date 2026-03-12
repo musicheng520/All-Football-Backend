@@ -33,7 +33,7 @@ public class UserServiceImpl implements UserService {
 
         String encodedPassword = passwordEncoder.encode(user.getPassword());
         user.setPassword(encodedPassword);
-
+        user.setEnabled(true);
         userMapper.insert(user);
     }
 
