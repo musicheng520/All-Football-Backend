@@ -23,18 +23,6 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
                              HttpServletResponse response,
                              Object handler) throws Exception {
 
-        String uri = request.getRequestURI();
-
-        // 1 Public APIs (no login required)
-        if (uri.startsWith("/auth")
-                || uri.startsWith("/fixtures")
-                || uri.startsWith("/teams")
-                || uri.startsWith("/players")
-                || uri.startsWith("/news")) {
-            return true;
-        }
-
-        // 2 Require login
         String header = request.getHeader("Authorization");
 
         if (header == null || !header.startsWith("Bearer ")) {
@@ -59,8 +47,7 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
                 return false;
             }
 
-            // 3 Admin API check
-            if (uri.startsWith("/admin") && !"ADMIN".equals(role)) {
+            if (request.getRequestURI().startsWith("/admin") && !"ADMIN".equals(role)) {
                 response.setStatus(403);
                 return false;
             }
@@ -80,7 +67,7 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
                                 HttpServletResponse response,
                                 Object handler,
                                 Exception ex) {
+
         ThreadLocalUtil.remove();
     }
-
 }
