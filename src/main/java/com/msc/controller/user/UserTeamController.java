@@ -39,4 +39,15 @@ public class UserTeamController {
                 teamQueryService.getTeamList(page, size, leagueId, season)
         );
     }
+
+    @GetMapping("/search")
+    public Result<PageResult<Team>> search(
+            @RequestParam String name,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return Result.success(
+                teamQueryService.searchByName(name, page, size)
+        );
+    }
 }

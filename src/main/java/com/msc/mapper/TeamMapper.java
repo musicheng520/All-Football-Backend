@@ -30,4 +30,6 @@ public interface TeamMapper {
     void upsert(Team team);
 
     List<Team> findByLeagueAndSeason(Long leagueId, Integer season);
+
+    List<Team> searchByName(String name);
 }

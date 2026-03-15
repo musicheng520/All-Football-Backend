@@ -89,6 +89,25 @@ public class TeamQueryServiceImpl implements TeamQueryService {
     }
 
     @Override
+    public PageResult<Team> searchByName(String name, int page, int size) {
+
+        List<Team> teams = teamMapper.searchByName(name);
+
+        int start = (page - 1) * size;
+        int end = Math.min(start + size, teams.size());
+
+        List<Team> pageList = teams.subList(start, end);
+
+        PageResult<Team> result = new PageResult<>();
+        result.setTotal(teams.size());
+        result.setPage(page);
+        result.setSize(size);
+        result.setRecords(pageList);
+
+        return result;
+    }
+
+    @Override
     public TeamDetailVO getTeamDetail(Long teamId, Integer season) {
 
         String key = "team:detail:" + teamId + ":" + season;

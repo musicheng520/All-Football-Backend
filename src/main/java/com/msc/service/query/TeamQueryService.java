@@ -10,4 +10,5 @@ public interface TeamQueryService {
 
     PageResult<Team> getTeamList(int page, int size, Long leagueId, Integer season);
 
+    PageResult<Team> searchByName(String name, int page, int size);
 }

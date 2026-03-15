@@ -126,5 +126,10 @@
         WHERE league_id = #{leagueId}
           AND season = #{season}
     </select>
+    <select id="searchByName" resultType="com.msc.model.entity.Team">
+        SELECT *
+        FROM teams
+        WHERE name LIKE CONCAT('%', #{name}, '%')
+    </select>
 
 </mapper>
