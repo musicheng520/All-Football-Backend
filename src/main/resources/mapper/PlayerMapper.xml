@@ -130,5 +130,10 @@
             #{id}
         </foreach>
     </select>
+    <select id="searchByName" resultType="com.msc.model.entity.Player">
+        SELECT *
+        FROM players
+        WHERE name LIKE CONCAT('%', #{name}, '%')
+    </select>
 
 </mapper>

@@ -23,6 +23,22 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
                              HttpServletResponse response,
                              Object handler) throws Exception {
 
+        // 放行预检请求
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+
+        String uri = request.getRequestURI();
+
+        if (uri.equals("/auth/login")
+                || uri.equals("/auth/register")
+                || uri.startsWith("/fixtures")
+                || uri.startsWith("/teams")
+                || uri.startsWith("/players")
+                || uri.startsWith("/news")) {
+            return true;
+        }
+
         String header = request.getHeader("Authorization");
 
         if (header == null || !header.startsWith("Bearer ")) {
@@ -47,7 +63,7 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
                 return false;
             }
 
-            if (request.getRequestURI().startsWith("/admin") && !"ADMIN".equals(role)) {
+            if (uri.startsWith("/admin") && !"ADMIN".equals(role)) {
                 response.setStatus(403);
                 return false;
             }

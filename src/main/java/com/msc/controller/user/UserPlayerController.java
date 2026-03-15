@@ -38,4 +38,15 @@ public class UserPlayerController {
                 playerQueryService.getPlayerList(page, size, teamId, season)
         );
     }
+
+    @GetMapping("/search")
+    public Result<PageResult<Player>> search(
+            @RequestParam String name,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return Result.success(
+                playerQueryService.searchByName(name, page, size)
+        );
+    }
 }

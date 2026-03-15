@@ -33,4 +33,6 @@ public interface PlayerMapper {
 
     @Select("select *from players where team_id = #{teamId}")
     List<Player> findByTeamId(Long teamId);
+
+    List<Player> searchByName(String name);
 }

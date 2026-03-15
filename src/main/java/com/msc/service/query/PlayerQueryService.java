@@ -14,4 +14,6 @@ public interface PlayerQueryService {
             Long teamId,
             Integer season
     );
+
+    PageResult<Player> searchByName(String name, int page, int size);
 }

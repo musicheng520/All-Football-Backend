@@ -102,6 +102,25 @@ public class PlayerQueryServiceImpl implements PlayerQueryService {
         return result;
     }
 
+    @Override
+    public PageResult<Player> searchByName(String name, int page, int size) {
+
+        List<Player> players = playerMapper.searchByName(name);
+
+        int start = (page - 1) * size;
+        int end = Math.min(start + size, players.size());
+
+        List<Player> pageList = players.subList(start, end);
+
+        PageResult<Player> result = new PageResult<>();
+        result.setTotal(players.size());
+        result.setPage(page);
+        result.setSize(size);
+        result.setRecords(pageList);
+
+        return result;
+    }
+
     // ===============================
     // player detail
     // ===============================
