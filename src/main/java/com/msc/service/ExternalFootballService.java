@@ -1,11 +1,14 @@
 package com.msc.service;
 
+import com.msc.model.entity.Fixture;
 import com.msc.model.entity.Player;
 import com.msc.model.entity.Team;
 import com.msc.model.vo.PlayerDetailVO;
 import com.msc.model.vo.TeamDetailVO;
 import com.msc.model.vo.fixture.FixtureDetailVO;
 import com.msc.result.PageResult;
+
+import java.util.List;
 
 public interface ExternalFootballService {
     String fetchTeams(Long leagueId, Integer season);

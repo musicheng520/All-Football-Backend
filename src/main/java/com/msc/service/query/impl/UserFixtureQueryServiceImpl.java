@@ -14,7 +14,10 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -42,7 +45,10 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
             return fixtureService.page(page, size, leagueId, season);
         }
 
-        String key = "fixtures:" + leagueId + ":" + season + ":" + page + ":" + size;
+        String key = "fixtures:league:" + leagueId +
+                ":season:" + season +
+                ":page:" + page +
+                ":size:" + size;
 
         try {
 
@@ -83,44 +89,74 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
 
                     Fixture f = new Fixture();
 
+                    // id
                     f.setId(fixtureNode.get("id").asLong());
+
                     f.setLeagueId(leagueId);
                     f.setSeason(season);
 
+                    // round
                     if (leagueNode != null && leagueNode.get("round") != null) {
                         f.setRound(leagueNode.get("round").asText());
                     }
 
-                    f.setHomeTeamId(
-                            teamsNode.get("home").get("id").asLong()
-                    );
+                    // home team
+                    JsonNode homeTeam = teamsNode.get("home");
 
-                    f.setAwayTeamId(
-                            teamsNode.get("away").get("id").asLong()
-                    );
+                    if (homeTeam != null) {
 
+                        if (homeTeam.get("id") != null)
+                            f.setHomeTeamId(homeTeam.get("id").asLong());
+
+                        if (homeTeam.get("name") != null)
+                            f.setHomeTeamName(homeTeam.get("name").asText());
+
+                        if (homeTeam.get("logo") != null)
+                            f.setHomeTeamLogo(homeTeam.get("logo").asText());
+                    }
+
+                    // away team
+                    JsonNode awayTeam = teamsNode.get("away");
+
+                    if (awayTeam != null) {
+
+                        if (awayTeam.get("id") != null)
+                            f.setAwayTeamId(awayTeam.get("id").asLong());
+
+                        if (awayTeam.get("name") != null)
+                            f.setAwayTeamName(awayTeam.get("name").asText());
+
+                        if (awayTeam.get("logo") != null)
+                            f.setAwayTeamLogo(awayTeam.get("logo").asText());
+                    }
+
+                    // score
                     if (goalsNode != null) {
 
-                        if (!goalsNode.get("home").isNull()) {
+                        if (goalsNode.get("home") != null && !goalsNode.get("home").isNull()) {
                             f.setHomeScore(goalsNode.get("home").asInt());
                         }
 
-                        if (!goalsNode.get("away").isNull()) {
+                        if (goalsNode.get("away") != null && !goalsNode.get("away").isNull()) {
                             f.setAwayScore(goalsNode.get("away").asInt());
                         }
                     }
 
+                    // match time
                     if (fixtureNode.get("date") != null) {
 
                         try {
+
                             f.setMatchTime(
-                                    java.time.OffsetDateTime
+                                    OffsetDateTime
                                             .parse(fixtureNode.get("date").asText())
                                             .toLocalDateTime()
                             );
+
                         } catch (Exception ignored) {}
                     }
 
+                    // status
                     JsonNode statusNode = fixtureNode.get("status");
 
                     if (statusNode != null) {
@@ -134,10 +170,12 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
                         }
                     }
 
+                    // referee
                     if (fixtureNode.get("referee") != null && !fixtureNode.get("referee").isNull()) {
                         f.setReferee(fixtureNode.get("referee").asText());
                     }
 
+                    // venue
                     if (fixtureNode.get("venue") != null) {
 
                         JsonNode venueNode = fixtureNode.get("venue");
@@ -151,7 +189,22 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
                 }
             }
 
+            // 排序（非常重要）
+            list.sort(
+                    Comparator.comparing(Fixture::getMatchTime).reversed()
+            );
+
+            // 分页
             int start = (page - 1) * size;
+
+            if (start >= list.size()) {
+
+                PageResult<Fixture> empty =
+                        new PageResult<>(list.size(), page, size, Collections.emptyList());
+
+                return empty;
+            }
+
             int end = Math.min(start + size, list.size());
 
             List<Fixture> pageList = list.subList(start, end);
@@ -159,10 +212,13 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
             PageResult<Fixture> result =
                     new PageResult<>(list.size(), page, size, pageList);
 
+            // Redis cache
             stringRedisTemplate.opsForValue()
-                    .set(key,
+                    .set(
+                            key,
                             objectMapper.writeValueAsString(result),
-                            Duration.ofHours(12));
+                            Duration.ofHours(12)
+                    );
 
             return result;
 

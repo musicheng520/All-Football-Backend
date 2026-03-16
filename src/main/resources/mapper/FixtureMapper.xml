@@ -122,23 +122,39 @@
         </where>
     </select>
 
-    <!-- pagination -->
     <select id="findPage"
             resultType="com.msc.model.entity.Fixture">
-        SELECT *
-        FROM fixtures
+
+        SELECT
+        f.*,
+
+        ht.name AS homeTeamName,
+        ht.logo AS homeTeamLogo,
+
+        at.name AS awayTeamName,
+        at.logo AS awayTeamLogo
+
+        FROM fixtures f
+
+        LEFT JOIN teams ht
+        ON f.home_team_id = ht.id
+
+        LEFT JOIN teams at
+        ON f.away_team_id = at.id
+
         <where>
             <if test="leagueId != null">
-                AND league_id = #{leagueId}
+                AND f.league_id = #{leagueId}
             </if>
             <if test="season != null">
-                AND season = #{season}
+                AND f.season = #{season}
             </if>
         </where>
-        ORDER BY match_time DESC
-        LIMIT #{offset}, #{size}
-    </select>
 
+        ORDER BY f.match_time DESC
+        LIMIT #{offset}, #{size}
+
+    </select>
     <select id="findBySeason" resultType="com.msc.model.entity.Fixture">
         SELECT *
         FROM fixtures
@@ -151,15 +167,30 @@
         where date(match_time) = #{date}
     </select>
 
-    <select id="findRecentByTeamId" resultType="com.msc.model.entity.Fixture">
+    <select id="findByTeamId"
+            resultType="com.msc.model.entity.Fixture">
 
-        SELECT *
-        FROM fixtures
-        WHERE home_team_id = #{teamId}
-           OR away_team_id = #{teamId}
-        ORDER BY match_time DESC
-            LIMIT 10
+        SELECT
+            f.*,
 
+            ht.name AS home_team_name,
+            ht.logo AS home_team_logo,
+
+            at.name AS away_team_name,
+            at.logo AS away_team_logo
+
+        FROM fixtures f
+
+                 LEFT JOIN teams ht
+                           ON f.home_team_id = ht.id
+
+                 LEFT JOIN teams at
+        ON f.away_team_id = at.id
+
+        WHERE (f.home_team_id = #{teamId}
+           OR f.away_team_id = #{teamId})
+
+        ORDER BY f.match_time DESC
     </select>
 
 

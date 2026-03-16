@@ -110,51 +110,50 @@ public class TeamQueryServiceImpl implements TeamQueryService {
     @Override
     public TeamDetailVO getTeamDetail(Long teamId, Integer season) {
 
-        String key = "team:detail:" + teamId + ":" + season;
-
-        // 1 Redis
-        try {
-            String cache = redisTemplate.opsForValue().get(key);
-
-            if (cache != null) {
-                System.out.println("[RedisHit] " + key);
-                return objectMapper.readValue(cache, TeamDetailVO.class);
-            }
-
-        } catch (Exception ignored) {}
-
-        System.out.println("[RedisMiss] " + key);
-
-        TeamDetailVO vo;
-
-        // 2 current season -> MySQL
+        // 当前赛季
         if (season.equals(footballProperties.getDefaultSeason())) {
 
             Team team = teamMapper.findById(teamId);
 
             List<Player> squad = playerMapper.findByTeamId(teamId);
 
-            List<Fixture> fixtures = fixtureMapper.findRecentByTeamId(teamId);
+            List<Fixture> fixtures =
+                    fixtureMapper.findByTeamId(teamId);
 
-            vo = new TeamDetailVO();
+            TeamDetailVO vo = new TeamDetailVO();
             vo.setTeam(team);
             vo.setSquad(squad);
-            vo.setRecentFixtures(fixtures);
+            vo.setFixtures(fixtures);
 
+            return vo;
         }
-        // 3 history season -> API
-        else {
 
-            vo = externalFootballService.fetchTeamDetail(teamId, season);
+        // 历史赛季
+        String key = "team:detail:" + teamId + ":" + season;
 
-            try {
-                redisTemplate.opsForValue().set(
-                        key,
-                        objectMapper.writeValueAsString(vo),
-                        Duration.ofHours(6)
-                );
-            } catch (Exception ignored) {}
-        }
+        try {
+
+            String cache = redisTemplate.opsForValue().get(key);
+
+            if (cache != null) {
+                return objectMapper.readValue(cache, TeamDetailVO.class);
+            }
+
+        } catch (Exception ignored) {}
+
+        // Redis miss → API
+        TeamDetailVO vo =
+                externalFootballService.fetchTeamDetail(teamId, season);
+
+        try {
+
+            redisTemplate.opsForValue().set(
+                    key,
+                    objectMapper.writeValueAsString(vo),
+                    Duration.ofHours(6)
+            );
+
+        } catch (Exception ignored) {}
 
         return vo;
     }

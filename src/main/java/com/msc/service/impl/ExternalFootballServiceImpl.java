@@ -30,10 +30,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -1393,16 +1390,164 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
     @Override
     public TeamDetailVO fetchTeamDetail(Long teamId, Integer season) {
 
-        Team team = fetchTeamInfo(teamId);
+        try {
 
-        List<Player> squad = fetchTeamSquad(teamId);
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("x-apisports-key", properties.getApi().getKey());
 
-        TeamDetailVO vo = new TeamDetailVO();
-        vo.setTeam(team);
-        vo.setSquad(squad);
-        vo.setRecentFixtures(null);
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-        return vo;
+            // ---------- players ----------
+
+            String playersUrl =
+                    "https://v3.football.api-sports.io/players?team="
+                            + teamId + "&season=" + season;
+
+            ResponseEntity<String> playersResp =
+                    restTemplate.exchange(playersUrl, HttpMethod.GET, entity, String.class);
+
+            JsonNode playersRoot = objectMapper.readTree(playersResp.getBody());
+            JsonNode playersArr = playersRoot.path("response");
+
+            List<Player> squad = new ArrayList<>();
+
+            for (JsonNode item : playersArr) {
+
+                JsonNode playerNode = item.path("player");
+                JsonNode statsNode = item.path("statistics").get(0);
+
+                Player p = new Player();
+
+                p.setId(playerNode.path("id").asLong());
+                p.setName(playerNode.path("name").asText());
+                p.setAge(playerNode.path("age").asInt());
+                p.setPhoto(playerNode.path("photo").asText());
+
+                p.setTeamId(teamId);
+                p.setLeagueId(statsNode.path("league").path("id").asLong());
+                p.setSeason(season);
+
+                squad.add(p);
+            }
+
+            // ---------- fixtures ----------
+
+            String fixturesUrl =
+                    "https://v3.football.api-sports.io/fixtures?team="
+                            + teamId + "&season=" + season;
+
+            ResponseEntity<String> fixturesResp =
+                    restTemplate.exchange(fixturesUrl, HttpMethod.GET, entity, String.class);
+
+            JsonNode fixturesRoot = objectMapper.readTree(fixturesResp.getBody());
+            JsonNode fixturesArr = fixturesRoot.path("response");
+
+            List<Fixture> fixtures = new ArrayList<>();
+
+            for (JsonNode item : fixturesArr) {
+
+                JsonNode fixtureNode = item.path("fixture");
+                JsonNode leagueNode = item.path("league");
+                JsonNode teamsNode = item.path("teams");
+                JsonNode goalsNode = item.path("goals");
+
+                JsonNode venueNode = fixtureNode.path("venue");
+                JsonNode statusNode = fixtureNode.path("status");
+
+
+
+                Fixture f = new Fixture();
+
+                f.setId(fixtureNode.path("id").asLong());
+
+                f.setLeagueId(leagueNode.path("id").asLong());
+
+// team ids
+                f.setHomeTeamId(
+                        teamsNode.path("home").path("id").asLong()
+                );
+
+                f.setAwayTeamId(
+                        teamsNode.path("away").path("id").asLong()
+                );
+
+// team names
+                f.setHomeTeamName(
+                        teamsNode.path("home").path("name").asText()
+                );
+
+                f.setAwayTeamName(
+                        teamsNode.path("away").path("name").asText()
+                );
+
+// team logos
+                f.setHomeTeamLogo(
+                        teamsNode.path("home").path("logo").asText()
+                );
+
+                f.setAwayTeamLogo(
+                        teamsNode.path("away").path("logo").asText()
+                );
+
+// score
+                f.setHomeScore(
+                        goalsNode.path("home").asInt()
+                );
+
+                f.setAwayScore(
+                        goalsNode.path("away").asInt()
+                );
+
+// status
+                f.setStatus(
+                        fixtureNode.path("status").path("short").asText()
+                );
+
+                f.setVenue(
+                        venueNode.path("name").asText()
+                );
+
+                f.setReferee(
+                        fixtureNode.path("referee").asText(null)
+                );
+
+                f.setStatus(
+                        statusNode.path("short").asText()
+                );
+
+                f.setElapsed(
+                        statusNode.path("elapsed").asInt()
+                );
+
+// match time
+                f.setMatchTime(
+                        OffsetDateTime
+                                .parse(fixtureNode.path("date").asText())
+                                .toLocalDateTime()
+                );
+
+                fixtures.add(f);
+            }
+
+            fixtures.sort(
+                    Comparator.comparing(Fixture::getMatchTime).reversed()
+            );
+
+            // ---------- build vo ----------
+
+            Team team = teamMapper.findById(teamId);
+
+            TeamDetailVO vo = new TeamDetailVO();
+            vo.setTeam(team);
+            vo.setSquad(squad);
+            vo.setFixtures(fixtures);
+
+            return vo;
+
+        } catch (Exception e) {
+
+            throw new RuntimeException("fetchTeamDetail failed", e);
+        }
     }
 
     @Override
@@ -1518,6 +1663,8 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
             throw new RuntimeException("fetchPlayerDetail failed", e);
         }
     }
+
+
 
     private String fetchPlayers(Long teamId, Integer season, int page) {
 

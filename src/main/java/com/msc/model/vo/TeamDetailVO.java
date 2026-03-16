@@ -14,6 +14,6 @@ public class TeamDetailVO {
 
     private List<Player> squad;
 
-    private List<Fixture> recentFixtures;
+    private List<Fixture> fixtures;
 
 }

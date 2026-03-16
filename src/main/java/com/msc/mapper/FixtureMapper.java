@@ -40,5 +40,5 @@ public interface FixtureMapper {
 
     List<Fixture> findByDate(LocalDate date);
 
-    List<Fixture> findRecentByTeamId(Long teamId);
+    List<Fixture> findByTeamId(Long teamId);
 }
