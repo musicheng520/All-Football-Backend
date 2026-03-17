@@ -41,4 +41,8 @@ public interface FixtureMapper {
     List<Fixture> findByDate(LocalDate date);
 
     List<Fixture> findByTeamId(Long teamId);
+
+    List<Fixture> findRecentMatches();
+
+    List<Fixture> findUpcomingMatches();
 }

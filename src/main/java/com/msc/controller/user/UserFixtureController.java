@@ -9,6 +9,8 @@ import com.msc.service.query.UserFixtureQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/fixtures")
 @RequiredArgsConstructor
@@ -37,5 +39,20 @@ public class UserFixtureController {
         return Result.success(
                 userFixtureQueryService.getFixtureDetail(id)
         );
+    }
+
+    @GetMapping("/live")
+    public Result<List<Fixture>> getLiveMatches() {
+        return Result.success(userFixtureQueryService.getLiveMatches());
+    }
+
+    @GetMapping("/recent")
+    public Result<List<Fixture>> getRecentMatches() {
+        return Result.success(userFixtureQueryService.getRecentMatches());
+    }
+
+    @GetMapping("/upcoming")
+    public Result<List<Fixture>> getUpcomingMatches() {
+        return Result.success(userFixtureQueryService.getUpcomingMatches());
     }
 }

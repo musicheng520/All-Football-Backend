@@ -1,8 +1,10 @@
 package com.msc.service.query.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.msc.config.FootballProperties;
+import com.msc.mapper.FixtureMapper;
 import com.msc.model.entity.Fixture;
 import com.msc.model.vo.fixture.FixtureDetailVO;
 import com.msc.result.PageResult;
@@ -29,6 +31,7 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
     private final FootballProperties footballProperties;
+    private final FixtureMapper fixtureMapper;
 
     /**
      * Fixture page query
@@ -275,5 +278,39 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
         } catch (Exception e) {
             throw new RuntimeException("Fixture detail query failed", e);
         }
+    }
+
+    public List<Fixture> getLiveMatches() {
+
+        String cache = stringRedisTemplate.opsForValue().get("live:matches");
+
+        if (cache != null) {
+
+            System.out.println("[RedisHit] live matches");
+
+            try {
+
+                return objectMapper.readValue(
+                        cache,
+                        new TypeReference<List<Fixture>>() {}
+                );
+
+            } catch (Exception e) {
+
+                throw new RuntimeException("Redis parse live matches failed", e);
+            }
+        }
+
+        System.out.println("[RedisMiss] live matches");
+
+        return Collections.emptyList();
+    }
+
+    public List<Fixture> getRecentMatches() {
+        return fixtureMapper.findRecentMatches();
+    }
+
+    public List<Fixture> getUpcomingMatches() {
+        return fixtureMapper.findUpcomingMatches();
     }
 }
