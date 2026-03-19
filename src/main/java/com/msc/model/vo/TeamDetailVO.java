@@ -12,7 +12,7 @@ public class TeamDetailVO {
 
     private Team team;
 
-    private List<Player> squad;
+    private List<PlayerVO> squad;
 
     private List<Fixture> fixtures;
 

@@ -1,6 +1,7 @@
 package com.msc.mapper;
 
 import com.msc.model.entity.Player;
+import com.msc.model.vo.PlayerVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -35,4 +36,6 @@ public interface PlayerMapper {
     List<Player> findByTeamId(Long teamId);
 
     List<Player> searchByName(String name);
+
+    List<PlayerVO> findPlayersWithStats(Long teamId, Integer season);
 }

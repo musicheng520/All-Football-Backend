@@ -3,6 +3,7 @@ package com.msc.service.query.impl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.msc.config.FootballProperties;
 import com.msc.model.entity.*;
+import com.msc.model.vo.PlayerVO;
 import com.msc.model.vo.TeamDetailVO;
 import com.msc.result.PageResult;
 import com.msc.mapper.*;
@@ -115,7 +116,8 @@ public class TeamQueryServiceImpl implements TeamQueryService {
 
             Team team = teamMapper.findById(teamId);
 
-            List<Player> squad = playerMapper.findByTeamId(teamId);
+            List<PlayerVO> squad =
+                    playerMapper.findPlayersWithStats(teamId, season);
 
             List<Fixture> fixtures =
                     fixtureMapper.findByTeamId(teamId);

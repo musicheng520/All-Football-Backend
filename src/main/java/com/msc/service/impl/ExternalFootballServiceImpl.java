@@ -7,6 +7,7 @@ import com.msc.config.FootballProperties;
 import com.msc.mapper.*;
 import com.msc.model.entity.*;
 import com.msc.model.vo.PlayerDetailVO;
+import com.msc.model.vo.PlayerVO;
 import com.msc.model.vo.TeamDetailVO;
 import com.msc.model.vo.fixture.EventVO;
 import com.msc.model.vo.fixture.FixtureDetailVO;
@@ -741,26 +742,28 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
             return;
         }
 
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("x-apisports-key", properties.getApi().getKey());
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
         for (Team team : teams) {
+
+            System.out.println("\n========== Team " + team.getId() + " ==========");
 
             String url = "https://" + properties.getApi().getHost()
                     + "/players/squads?team=" + team.getId();
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("x-apisports-key", properties.getApi().getKey());
-
-            HttpEntity<String> entity = new HttpEntity<>(headers);
-
-            ResponseEntity<String> response =
-                    restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-
             try {
+
+                ResponseEntity<String> response =
+                        restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
 
                 JsonNode root = objectMapper.readTree(response.getBody());
                 JsonNode responseArr = root.get("response");
 
                 if (responseArr == null || responseArr.size() == 0) {
-                    System.out.println("[PlayerSync] Empty squad for team=" + team.getId());
+                    System.out.println("[Squad] Empty for team=" + team.getId());
                     continue;
                 }
 
@@ -772,46 +775,100 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
 
                     Player player = new Player();
 
+                    // ================================
+                    // 基础信息
+                    // ================================
                     player.setId(p.get("id").asLong());
-                    player.setName(p.get("name").asText());
+                    player.setName(textOrNull(p.get("name")));
+                    player.setFirstName(textOrNull(p.get("firstname")));
+                    player.setLastName(textOrNull(p.get("lastname")));
                     player.setAge(intOrNull(p.get("age")));
-                    player.setPhoto(textOrNull(p.get("photo")));
 
+                    player.setPhoto(textOrNull(p.get("photo")));
+                    player.setNationality(textOrNull(p.get("nationality")));
+
+                    // ================================
+                    // birth 信息（重点：防崩）
+                    // ================================
+                    if (p.has("birth") && !p.get("birth").isNull()) {
+
+                        JsonNode birth = p.get("birth");
+
+                        // date
+                        if (birth.has("date") && !birth.get("date").isNull()) {
+                            try {
+                                player.setBirthDate(
+                                        LocalDate.parse(birth.get("date").asText())
+                                );
+                            } catch (Exception e) {
+                                System.out.println(
+                                        "[Birth Parse Error] player=" + player.getId()
+                                );
+                            }
+                        }
+
+                        // place
+                        if (birth.has("place")) {
+                            player.setBirthPlace(textOrNull(birth.get("place")));
+                        }
+
+                        // country
+                        if (birth.has("country")) {
+                            player.setBirthCountry(textOrNull(birth.get("country")));
+                        }
+                    }
+
+                    // ================================
+                    // 身体信息（可能大量为 null）
+                    // ================================
+                    player.setHeight(
+                            p.has("height") && !p.get("height").isNull()
+                                    ? p.get("height").asText()
+                                    : null
+                    );
+
+                    player.setWeight(
+                            p.has("weight") && !p.get("weight").isNull()
+                                    ? p.get("weight").asText()
+                                    : null
+                    );
+
+                    // ================================
+                    // 关联信息
+                    // ================================
                     player.setTeamId(team.getId());
                     player.setLeagueId(team.getLeagueId());
                     player.setSeason(season);
 
-                    player.setNationality(textOrNull(p.get("nationality")));
-
-                    if (p.has("birth") && p.get("birth") != null) {
-                        JsonNode birth = p.get("birth");
-
-                        if (birth.has("date") && !birth.get("date").isNull()) {
-                            player.setBirthDate(
-                                    LocalDate.parse(birth.get("date").asText())
-                            );
-                        }
-
-                        player.setBirthPlace(textOrNull(birth.get("place")));
-                        player.setBirthCountry(textOrNull(birth.get("country")));
-                    }
-
-                    player.setHeight(textOrNull(p.get("height")));
-                    player.setWeight(textOrNull(p.get("weight")));
-
+                    // ================================
+                    // 数据库写入
+                    // ================================
                     playerMapper.upsert(player);
+
                     count++;
+
+                    // ================================
+                    // Debug 输出（你要求的 println）
+                    // ================================
+                    System.out.println(
+                            "[Player] id=" + player.getId()
+                                    + " | name=" + player.getName()
+                                    + " | nat=" + player.getNationality()
+                                    + " | height=" + player.getHeight()
+                                    + " | weight=" + player.getWeight()
+                                    + " | birth=" + player.getBirthDate()
+                    );
                 }
 
-                System.out.println("[PlayerSync] team=" + team.getId()
-                        + " players=" + count);
+                System.out.println("[Squad] saved=" + count);
 
             } catch (Exception e) {
+                System.out.println("[ERROR] team=" + team.getId());
                 e.printStackTrace();
             }
         }
 
-        System.out.println("[PlayerSync] Completed season=" + season);
+        System.out.println("\n[PlayerSync] Completed season=" + season);
     }
 
     @Override
@@ -1409,23 +1466,53 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
             JsonNode playersRoot = objectMapper.readTree(playersResp.getBody());
             JsonNode playersArr = playersRoot.path("response");
 
-            List<Player> squad = new ArrayList<>();
+            List<PlayerVO> squad = new ArrayList<>();
 
             for (JsonNode item : playersArr) {
 
                 JsonNode playerNode = item.path("player");
-                JsonNode statsNode = item.path("statistics").get(0);
+                JsonNode statsArr = item.path("statistics");
 
-                Player p = new Player();
+                if (statsArr == null || statsArr.size() == 0) {
+                    continue;
+                }
+
+                JsonNode statsNode = statsArr.get(0);
+
+                PlayerVO p = new PlayerVO();
 
                 p.setId(playerNode.path("id").asLong());
                 p.setName(playerNode.path("name").asText());
-                p.setAge(playerNode.path("age").asInt());
-                p.setPhoto(playerNode.path("photo").asText());
+                p.setAge(playerNode.path("age").isNull() ? null : playerNode.path("age").asInt());
+                p.setNationality(playerNode.path("nationality").isMissingNode() || playerNode.path("nationality").isNull()
+                        ? null
+                        : playerNode.path("nationality").asText());
+                p.setPhoto(playerNode.path("photo").asText(null));
 
-                p.setTeamId(teamId);
-                p.setLeagueId(statsNode.path("league").path("id").asLong());
-                p.setSeason(season);
+                // stats
+                p.setAppearances(
+                        statsNode.path("games").path("appearences").isNull()
+                                ? null
+                                : statsNode.path("games").path("appearences").asInt()
+                );
+
+                p.setGoals(
+                        statsNode.path("goals").path("total").isNull()
+                                ? null
+                                : statsNode.path("goals").path("total").asInt()
+                );
+
+                p.setAssists(
+                        statsNode.path("goals").path("assists").isNull()
+                                ? null
+                                : statsNode.path("goals").path("assists").asInt()
+                );
+
+                p.setRating(
+                        statsNode.path("games").path("rating").isNull()
+                                ? null
+                                : statsNode.path("games").path("rating").asText()
+                );
 
                 squad.add(p);
             }

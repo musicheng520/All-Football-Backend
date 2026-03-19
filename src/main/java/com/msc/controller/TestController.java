@@ -1,0 +1,46 @@
+package com.msc.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/test")
+@RequiredArgsConstructor
+public class TestController {
+
+    private final SimpMessagingTemplate simpMessagingTemplate;
+
+    @GetMapping("/push/goal/{matchId}")
+    public String pushGoal(@PathVariable Long matchId) {
+
+        Map<String, Object> data = new HashMap<>();
+
+        // 随机比分（模拟变化）
+        int home = (int) (Math.random() * 4);
+        int away = (int) (Math.random() * 4);
+
+        data.put("fixture", Map.of(
+                "homeScore", home,
+                "awayScore", away,
+                "status", "LIVE"
+        ));
+
+        data.put("events", List.of(
+                Map.of(
+                        "minute", 50 + (int)(Math.random() * 40),
+                        "type", "Goal",
+                        "playerName", "Player_" + (int)(Math.random() * 99),
+                        "teamId", Math.random() > 0.5 ? 1 : 2
+                )
+        ));
+
+        simpMessagingTemplate.convertAndSend("/topic/match/" + matchId, data);
+
+        return "Goal pushed!";
+    }
+}

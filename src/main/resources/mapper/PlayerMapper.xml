@@ -135,5 +135,28 @@
         FROM players
         WHERE name LIKE CONCAT('%', #{name}, '%')
     </select>
+    <select id="findPlayersWithStats" resultType="com.msc.model.vo.PlayerVO">
+
+        SELECT
+            p.id,
+            p.name,
+            p.age,
+            p.nationality,
+            p.photo,
+
+            ps.appearances,
+            ps.goals,
+            ps.assists,
+            ps.rating
+
+        FROM players p
+                 LEFT JOIN player_stats ps
+                           ON p.id = ps.player_id
+                               AND p.season = ps.season
+
+        WHERE p.team_id = #{teamId}
+          AND p.season = #{season}
+
+    </select>
 
 </mapper>
