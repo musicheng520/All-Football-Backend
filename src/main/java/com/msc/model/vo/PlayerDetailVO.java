@@ -1,6 +1,7 @@
 package com.msc.model.vo;
 
 import com.msc.model.entity.Player;
+import com.msc.model.entity.PlayerProfile;
 import com.msc.model.entity.PlayerStats;
 import com.msc.model.entity.Team;
 import lombok.Data;
@@ -15,5 +16,7 @@ public class PlayerDetailVO {
     private Team team;
 
     private List<PlayerStats> statistics;
+
+    private PlayerProfile profile;
 
 }

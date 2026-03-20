@@ -18,6 +18,7 @@ import com.msc.result.PageResult;
 import com.msc.service.ExternalFootballService;
 import com.msc.service.LivePushService;
 import com.msc.service.MatchFinalizeService;
+import com.msc.service.PlayerProfileService;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.context.annotation.Lazy;
@@ -54,6 +55,7 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
     private final LineupPlayerMapper lineupPlayerMapper;
     private final LineupMapper lineupMapper;
     private final MatchStatisticMapper matchStatisticMapper;
+    private final PlayerProfileService playerProfileService;
 
     @Override
     public String fetchTeams(Long leagueId, Integer season) {
@@ -1481,15 +1483,30 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
 
                 PlayerVO p = new PlayerVO();
 
-                p.setId(playerNode.path("id").asLong());
+                // ---------- 基础信息 ----------
+                Long playerId = playerNode.path("id").asLong();
+                p.setId(playerId);
+
                 p.setName(playerNode.path("name").asText());
                 p.setAge(playerNode.path("age").isNull() ? null : playerNode.path("age").asInt());
-                p.setNationality(playerNode.path("nationality").isMissingNode() || playerNode.path("nationality").isNull()
-                        ? null
-                        : playerNode.path("nationality").asText());
                 p.setPhoto(playerNode.path("photo").asText(null));
 
-                // stats
+                // ---------- profile（缓存层🔥）----------
+                PlayerProfile profile = playerProfileService.getProfileByPlayerId(playerId);
+
+                if (profile != null) {
+                    p.setNationality(profile.getNationality());
+                    p.setPosition(profile.getPosition());
+                    p.setNumber(profile.getNumber());
+                } else {
+                    p.setNationality(
+                            playerNode.path("nationality").isMissingNode() || playerNode.path("nationality").isNull()
+                                    ? null
+                                    : playerNode.path("nationality").asText()
+                    );
+                }
+
+                // ---------- stats ----------
                 p.setAppearances(
                         statsNode.path("games").path("appearences").isNull()
                                 ? null
@@ -1541,72 +1558,35 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                 JsonNode venueNode = fixtureNode.path("venue");
                 JsonNode statusNode = fixtureNode.path("status");
 
-
-
                 Fixture f = new Fixture();
 
                 f.setId(fixtureNode.path("id").asLong());
-
                 f.setLeagueId(leagueNode.path("id").asLong());
 
-// team ids
-                f.setHomeTeamId(
-                        teamsNode.path("home").path("id").asLong()
-                );
+                // team ids
+                f.setHomeTeamId(teamsNode.path("home").path("id").asLong());
+                f.setAwayTeamId(teamsNode.path("away").path("id").asLong());
 
-                f.setAwayTeamId(
-                        teamsNode.path("away").path("id").asLong()
-                );
+                // names
+                f.setHomeTeamName(teamsNode.path("home").path("name").asText());
+                f.setAwayTeamName(teamsNode.path("away").path("name").asText());
 
-// team names
-                f.setHomeTeamName(
-                        teamsNode.path("home").path("name").asText()
-                );
+                // logos
+                f.setHomeTeamLogo(teamsNode.path("home").path("logo").asText());
+                f.setAwayTeamLogo(teamsNode.path("away").path("logo").asText());
 
-                f.setAwayTeamName(
-                        teamsNode.path("away").path("name").asText()
-                );
+                // score
+                f.setHomeScore(goalsNode.path("home").isNull() ? null : goalsNode.path("home").asInt());
+                f.setAwayScore(goalsNode.path("away").isNull() ? null : goalsNode.path("away").asInt());
 
-// team logos
-                f.setHomeTeamLogo(
-                        teamsNode.path("home").path("logo").asText()
-                );
+                // status
+                f.setStatus(statusNode.path("short").asText());
+                f.setElapsed(statusNode.path("elapsed").isNull() ? null : statusNode.path("elapsed").asInt());
 
-                f.setAwayTeamLogo(
-                        teamsNode.path("away").path("logo").asText()
-                );
+                f.setVenue(venueNode.path("name").asText(null));
+                f.setReferee(fixtureNode.path("referee").asText(null));
 
-// score
-                f.setHomeScore(
-                        goalsNode.path("home").asInt()
-                );
-
-                f.setAwayScore(
-                        goalsNode.path("away").asInt()
-                );
-
-// status
-                f.setStatus(
-                        fixtureNode.path("status").path("short").asText()
-                );
-
-                f.setVenue(
-                        venueNode.path("name").asText()
-                );
-
-                f.setReferee(
-                        fixtureNode.path("referee").asText(null)
-                );
-
-                f.setStatus(
-                        statusNode.path("short").asText()
-                );
-
-                f.setElapsed(
-                        statusNode.path("elapsed").asInt()
-                );
-
-// match time
+                // match time
                 f.setMatchTime(
                         OffsetDateTime
                                 .parse(fixtureNode.path("date").asText())

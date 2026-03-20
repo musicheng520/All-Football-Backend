@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.msc.mapper.PlayerProfileMapper">
+
+    <!-- ============================= -->
+    <!-- 查询 -->
+    <!-- ============================= -->
+    <select id="findByPlayerId"
+            resultType="com.msc.model.entity.PlayerProfile">
+
+        SELECT
+            player_id        AS playerId,
+            first_name       AS firstName,
+            last_name        AS lastName,
+            birth_date       AS birthDate,
+            birth_place      AS birthPlace,
+            birth_country    AS birthCountry,
+            nationality,
+            height,
+            weight,
+            number,
+            position,
+            photo,
+            updated_at       AS updatedAt
+        FROM player_profile
+        WHERE player_id = #{playerId}
+
+    </select>
+
+
+    <!-- ============================= -->
+    <!-- 插入或更新（核心🔥） -->
+    <!-- ============================= -->
+    <insert id="insertOrUpdate">
+
+        INSERT INTO player_profile (
+            player_id,
+            first_name,
+            last_name,
+            birth_date,
+            birth_place,
+            birth_country,
+            nationality,
+            height,
+            weight,
+            number,
+            position,
+            photo,
+            updated_at
+        )
+        VALUES (
+                   #{playerId},
+                   #{firstName},
+                   #{lastName},
+                   #{birthDate},
+                   #{birthPlace},
+                   #{birthCountry},
+                   #{nationality},
+                   #{height},
+                   #{weight},
+                   #{number},
+                   #{position},
+                   #{photo},
+                   NOW()
+               )
+            ON DUPLICATE KEY UPDATE
+                                 first_name = VALUES(first_name),
+                                 last_name = VALUES(last_name),
+                                 birth_date = VALUES(birth_date),
+                                 birth_place = VALUES(birth_place),
+                                 birth_country = VALUES(birth_country),
+                                 nationality = VALUES(nationality),
+                                 height = VALUES(height),
+                                 weight = VALUES(weight),
+                                 number = VALUES(number),
+                                 position = VALUES(position),
+                                 photo = VALUES(photo),
+                                 updated_at = NOW()
+
+    </insert>
+
+
+    <!-- ============================= -->
+    <!-- 删除（可选） -->
+    <!-- ============================= -->
+    <delete id="deleteByPlayerId">
+        DELETE FROM player_profile
+        WHERE player_id = #{playerId}
+    </delete>
+
+</mapper>

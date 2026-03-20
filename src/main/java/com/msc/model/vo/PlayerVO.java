@@ -8,8 +8,13 @@ public class PlayerVO {
     private Long id;
     private String name;
     private Integer age;
-    private String nationality;
+
     private String photo;
+
+    // profile
+    private String position;
+    private Integer number;
+    private String nationality;
 
     // ===== stats =====
     private Integer appearances;

@@ -6,11 +6,13 @@ import com.msc.mapper.PlayerMapper;
 import com.msc.mapper.PlayerStatsMapper;
 import com.msc.mapper.TeamMapper;
 import com.msc.model.entity.Player;
+import com.msc.model.entity.PlayerProfile;
 import com.msc.model.entity.PlayerStats;
 import com.msc.model.entity.Team;
 import com.msc.model.vo.PlayerDetailVO;
 import com.msc.result.PageResult;
 import com.msc.service.ExternalFootballService;
+import com.msc.service.PlayerProfileService;
 import com.msc.service.query.PlayerQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -27,6 +29,7 @@ public class PlayerQueryServiceImpl implements PlayerQueryService {
     private final PlayerStatsMapper playerStatsMapper;
     private final TeamMapper teamMapper;
     private final ExternalFootballService externalFootballService;
+    private final PlayerProfileService playerProfileService;
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
@@ -137,7 +140,13 @@ public class PlayerQueryServiceImpl implements PlayerQueryService {
 
                 System.out.println("[RedisHit] " + key);
 
-                return objectMapper.readValue(cache, PlayerDetailVO.class);
+                PlayerDetailVO vo =
+                        objectMapper.readValue(cache, PlayerDetailVO.class);
+
+                // 👇 关键：cache出来也要补 profile
+                attachProfile(vo);
+
+                return vo;
             }
 
         } catch (Exception ignored) {}
@@ -150,7 +159,6 @@ public class PlayerQueryServiceImpl implements PlayerQueryService {
         if (season.equals(footballProperties.getDefaultSeason())) {
 
             Player player = playerMapper.findById(playerId);
-
             Team team = teamMapper.findById(player.getTeamId());
 
             List<PlayerStats> stats =
@@ -178,6 +186,29 @@ public class PlayerQueryServiceImpl implements PlayerQueryService {
             } catch (Exception ignored) {}
         }
 
+        // 核心：统一补 profile
+        attachProfile(vo);
+
         return vo;
+    }
+
+    private void attachProfile(PlayerDetailVO vo) {
+
+        if (vo == null || vo.getPlayer() == null) {
+            return;
+        }
+
+        try {
+
+            PlayerProfile profile =
+                    playerProfileService.getProfileByPlayerId(vo.getPlayer().getId());
+
+            vo.setProfile(profile);
+
+        } catch (Exception e) {
+
+            // 不影响主流程（非常重要）
+            System.out.println("[ProfileFallback] " + e.getMessage());
+        }
     }
 }
