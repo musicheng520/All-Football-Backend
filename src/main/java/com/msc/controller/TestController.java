@@ -25,18 +25,12 @@ public class TestController {
         int away = (int) (Math.random() * 4);
 
         data.put("fixture", Map.of(
-                "homeScore", home,
-                "awayScore", away,
-                "status", "LIVE"
+                "status", Map.of("short", "1H")
         ));
 
-        data.put("events", List.of(
-                Map.of(
-                        "minute", 50 + (int)(Math.random() * 40),
-                        "type", "Goal",
-                        "playerName", "Player_" + (int)(Math.random() * 99),
-                        "teamId", Math.random() > 0.5 ? 1 : 2
-                )
+        data.put("goals", Map.of(
+                "home", home,
+                "away", away
         ));
 
         simpMessagingTemplate.convertAndSend("/topic/match/" + matchId, data);

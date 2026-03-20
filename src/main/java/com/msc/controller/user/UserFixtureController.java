@@ -1,5 +1,6 @@
 package com.msc.controller.user;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.msc.model.entity.Fixture;
 import com.msc.model.vo.fixture.FixtureDetailVO;
 import com.msc.result.PageResult;
@@ -42,10 +43,9 @@ public class UserFixtureController {
     }
 
     @GetMapping("/live")
-    public Result<List<Fixture>> getLiveMatches() {
+    public Result<List<JsonNode>> getLiveMatches() {
         return Result.success(userFixtureQueryService.getLiveMatches());
     }
-
     @GetMapping("/recent")
     public Result<List<Fixture>> getRecentMatches() {
         return Result.success(userFixtureQueryService.getRecentMatches());

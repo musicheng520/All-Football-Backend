@@ -1,5 +1,6 @@
 package com.msc.service.query;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.msc.model.entity.Fixture;
 import com.msc.model.vo.fixture.FixtureDetailVO;
 import com.msc.result.PageResult;
@@ -14,7 +15,7 @@ public interface UserFixtureQueryService {
 
     FixtureDetailVO getFixtureDetail(Long fixtureId);
 
-    List<Fixture> getLiveMatches();
+   List<JsonNode> getLiveMatches();
 
     List<Fixture> getRecentMatches();
 

@@ -24,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.*;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -56,6 +57,7 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
     private final LineupMapper lineupMapper;
     private final MatchStatisticMapper matchStatisticMapper;
     private final PlayerProfileService playerProfileService;
+    private final SimpMessagingTemplate simpMessagingTemplate;
 
     @Override
     public String fetchTeams(Long leagueId, Integer season) {
@@ -1024,8 +1026,10 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                     );
 
 
-
-                    livePushService.broadcast(newMatch);
+                    simpMessagingTemplate.convertAndSend(
+                            "/topic/match/" + fixtureId,
+                            newMatch
+                    );
                     // -------- FT match persistence --------
                     String status = newMatch
                             .get("fixture")

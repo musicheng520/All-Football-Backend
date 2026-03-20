@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.msc.config.FootballProperties;
 import com.msc.mapper.FixtureMapper;
 import com.msc.model.entity.Fixture;
+import com.msc.model.entity.Team;
+import com.msc.model.vo.fixture.EventVO;
 import com.msc.model.vo.fixture.FixtureDetailVO;
 import com.msc.result.PageResult;
 import com.msc.service.ExternalFootballService;
@@ -241,36 +243,75 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
 
         try {
 
+            // =========================
+            // 0️⃣ LIVE 优先（Redis）
+            // =========================
+            String liveJson = stringRedisTemplate.opsForValue().get("live:fixtures");
+
+            if (liveJson != null) {
+
+                JsonNode liveArray = objectMapper.readTree(liveJson);
+
+                for (JsonNode match : liveArray) {
+
+                    long id = match.get("fixture").get("id").asLong();
+
+                    if (id == fixtureId) {
+
+                        System.out.println("[LiveHit] fixture=" + fixtureId);
+
+                        return convertLiveToVO(match);
+                    }
+                }
+            }
+
+
+            // =========================
+            // 1️⃣ Redis（detail缓存）
+            // =========================
             String cache = stringRedisTemplate.opsForValue().get(key);
 
             if (cache != null) {
+
                 System.out.println("[RedisHit] " + key);
+
                 return objectMapper.readValue(cache, FixtureDetailVO.class);
             }
 
             System.out.println("[RedisMiss] " + key);
 
+
+            // =========================
+            // 2️⃣ DB / 历史
+            // =========================
             Fixture fixture = fixtureService.findById(fixtureId);
 
             FixtureDetailVO vo;
 
-            // 当前赛季：数据库里能找到，并且 season = defaultSeason
             if (fixture != null
                     && fixture.getSeason() != null
                     && fixture.getSeason().equals(footballProperties.getDefaultSeason())) {
 
+                // 当前赛季
                 vo = externalFootballService.buildFixtureDetailFromDb(fixtureId);
 
             } else {
-                // 历史赛季：数据库找不到 or 非当前赛季
+
+                // 历史赛季
                 vo = externalFootballService.fetchHistoricalFixtureDetail(fixtureId);
             }
 
+
+            // =========================
+            // 3️⃣ 写缓存
+            // =========================
             if (vo != null) {
-                stringRedisTemplate.opsForValue()
-                        .set(key,
-                                objectMapper.writeValueAsString(vo),
-                                Duration.ofHours(12));
+
+                stringRedisTemplate.opsForValue().set(
+                        key,
+                        objectMapper.writeValueAsString(vo),
+                        Duration.ofHours(12)
+                );
             }
 
             return vo;
@@ -280,11 +321,15 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
         }
     }
 
-    public List<Fixture> getLiveMatches() {
+    @Override
+    public List<JsonNode> getLiveMatches() {
 
-        String cache = stringRedisTemplate.opsForValue().get("live:matches");
+        String cache = stringRedisTemplate.opsForValue().get("live:fixtures");
 
-        if (cache != null) {
+        // =========================
+        // REDIS HIT
+        // =========================
+        if (cache != null && !cache.isEmpty()) {
 
             System.out.println("[RedisHit] live matches");
 
@@ -292,7 +337,7 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
 
                 return objectMapper.readValue(
                         cache,
-                        new TypeReference<List<Fixture>>() {}
+                        new TypeReference<List<JsonNode>>() {}
                 );
 
             } catch (Exception e) {
@@ -301,6 +346,9 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
             }
         }
 
+        // =========================
+        // REDIS MISS
+        // =========================
         System.out.println("[RedisMiss] live matches");
 
         return Collections.emptyList();
@@ -312,5 +360,94 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
 
     public List<Fixture> getUpcomingMatches() {
         return fixtureMapper.findUpcomingMatches();
+    }
+
+    private FixtureDetailVO convertLiveToVO(JsonNode match) {
+
+        FixtureDetailVO vo = new FixtureDetailVO();
+
+        // =========================
+        // fixture
+        // =========================
+        Fixture fixture = new Fixture();
+
+        JsonNode f = match.get("fixture");
+
+        fixture.setId(f.get("id").asLong());
+
+        fixture.setReferee(f.path("referee").asText(null));
+        fixture.setVenue(f.path("venue").path("name").asText(null));
+
+        fixture.setStatus(
+                f.path("status").path("short").asText()
+        );
+
+        fixture.setHomeScore(match.path("goals").path("home").asInt());
+        fixture.setAwayScore(match.path("goals").path("away").asInt());
+
+        vo.setFixture(fixture);
+
+        // =========================
+        // teams
+        // =========================
+        Team home = new Team();
+        Team away = new Team();
+
+        JsonNode homeNode = match.path("teams").path("home");
+        JsonNode awayNode = match.path("teams").path("away");
+
+        home.setId(homeNode.path("id").asLong());
+        home.setName(homeNode.path("name").asText());
+        home.setLogo(homeNode.path("logo").asText());
+
+        away.setId(awayNode.path("id").asLong());
+        away.setName(awayNode.path("name").asText());
+        away.setLogo(awayNode.path("logo").asText());
+
+        vo.setHomeTeam(home);
+        vo.setAwayTeam(away);
+
+        // =========================
+        // events
+        // =========================
+        List<EventVO> events = new ArrayList<>();
+
+        for (JsonNode e : match.path("events")) {
+
+            EventVO ev = new EventVO();
+
+            ev.setMinute(e.path("time").path("elapsed").asInt());
+
+            ev.setType(e.path("type").asText());
+
+            ev.setPlayerName(
+                    e.path("player").path("name").asText(null)
+            );
+
+            ev.setAssistPlayerName(
+                    e.path("assist").path("name").asText(null)
+            );
+
+            ev.setTeamId(
+                    e.path("team").path("id").asLong()
+            );
+
+            events.add(ev);
+        }
+
+        vo.setEvents(events);
+
+        // =========================
+        // stats（live一般没有）
+        // =========================
+        vo.setStatistics(null);
+
+        // =========================
+        // lineup（live没有）
+        // =========================
+        vo.setHomeLineup(null);
+        vo.setAwayLineup(null);
+
+        return vo;
     }
 }
