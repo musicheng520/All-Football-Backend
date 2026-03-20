@@ -978,11 +978,11 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                 oldSnapshot = objectMapper.readTree(oldJson);
             }
 
-            // 2️. get new snapshot FIRST
+            // 2️. get new snapshot
             String newJson = fetchLiveFixturesFilteredJson();
             JsonNode newSnapshot = objectMapper.readTree(newJson);
 
-            // 3️. cold start handling
+            // 3️. cold start
             if (oldSnapshot == null) {
 
                 stringRedisTemplate.opsForValue()
@@ -994,7 +994,7 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                 return;
             }
 
-            // 4️. construct old data Map（O(n)）
+            // 4️. old map (O(n))
             Map<Long, JsonNode> oldMatchMap = new HashMap<>();
 
             for (JsonNode match : oldSnapshot) {
@@ -1006,7 +1006,9 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                 oldMatchMap.put(id, match);
             }
 
-            // 5️. delta detection
+            // =========================
+            // 5️. delta detection (正常LIVE变化)
+            // =========================
             for (JsonNode newMatch : newSnapshot) {
 
                 long fixtureId = newMatch.get("fixture")
@@ -1025,12 +1027,13 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                                     " changed → " + changes
                     );
 
-
+                    // 🔥 推送 LIVE 更新
                     simpMessagingTemplate.convertAndSend(
-                            "/topic/match/" + fixtureId,
+                            "/topic/live",
                             newMatch
                     );
-                    // -------- FT match persistence --------
+
+                    // -------- 正常 FT（极少出现，但保留）--------
                     String status = newMatch
                             .get("fixture")
                             .get("status")
@@ -1042,7 +1045,6 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                         Long added = stringRedisTemplate.opsForSet()
                                 .add("finished:fixtures", String.valueOf(fixtureId));
 
-                        // ensure only save once
                         if (added != null && added == 1L) {
 
                             System.out.println(
@@ -1055,7 +1057,53 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                 }
             }
 
-            // 6️. update Redis snapshot
+            // =========================
+            // 6️. 🔥 核心：检测“消失的比赛”（FT）
+            // =========================
+
+            Set<Long> newIds = new HashSet<>();
+
+            for (JsonNode m : newSnapshot) {
+                long id = m.get("fixture").get("id").asLong();
+                newIds.add(id);
+            }
+
+            for (Long oldId : oldMatchMap.keySet()) {
+
+                // ❗ old有，new没有 → 比赛结束
+                if (!newIds.contains(oldId)) {
+
+                    System.out.println("[FT detected] fixture=" + oldId);
+
+                    // ✅ 构造 FT 推送
+                    Map<String, Object> ftMsg = Map.of(
+                            "fixture", Map.of(
+                                    "id", oldId,
+                                    "status", Map.of("short", "FT")
+                            )
+                    );
+
+                    simpMessagingTemplate.convertAndSend(
+                            "/topic/live",
+                            ftMsg
+                    );
+
+                    // ✅ finalize（只执行一次）
+                    Long added = stringRedisTemplate.opsForSet()
+                            .add("finished:fixtures", String.valueOf(oldId));
+
+                    if (added != null && added == 1L) {
+
+                        System.out.println("[FinalizeTrigger] FT detected " + oldId);
+
+                        matchFinalizeService.finalizeMatch(oldId);
+                    }
+                }
+            }
+
+            // =========================
+            // 7️. update snapshot
+            // =========================
             stringRedisTemplate.opsForValue()
                     .set("live:fixtures",
                             newJson,

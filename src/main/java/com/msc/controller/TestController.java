@@ -37,4 +37,38 @@ public class TestController {
 
         return "Goal pushed!";
     }
+
+    @GetMapping("/mock/goal/{matchId}")
+    public void mockGoal(@PathVariable Long matchId) {
+
+        Map<String, Object> data = Map.of(
+                "fixture", Map.of(
+                        "id", matchId,
+                        "status", Map.of("short", "LIVE")
+                ),
+                "goals", Map.of(
+                        "home", (int)(Math.random()*3),
+                        "away", (int)(Math.random()*3)
+                ),
+                "teams", Map.of(
+                        "home", Map.of("name", "Barcelona"),
+                        "away", Map.of("name", "Real Madrid")
+                )
+        );
+
+        simpMessagingTemplate.convertAndSend("/topic/match", data);
+    }
+
+    @GetMapping("/mock/ft/{matchId}")
+    public void mockFT(@PathVariable Long matchId) {
+
+        Map<String, Object> data = Map.of(
+                "fixture", Map.of(
+                        "id", matchId,
+                        "status", Map.of("short", "FT")
+                )
+        );
+
+        simpMessagingTemplate.convertAndSend("/topic/match", data);
+    }
 }
