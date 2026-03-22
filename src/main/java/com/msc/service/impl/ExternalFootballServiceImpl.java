@@ -1027,9 +1027,11 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                                     " changed → " + changes
                     );
 
-                    // 🔥 推送 LIVE 更新
+                    //  推送 LIVE 更新
+                    simpMessagingTemplate.convertAndSend("/topic/live", newMatch);
+
                     simpMessagingTemplate.convertAndSend(
-                            "/topic/live",
+                            "/topic/match/" + fixtureId,
                             newMatch
                     );
 
@@ -1058,7 +1060,7 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
             }
 
             // =========================
-            // 6️. 🔥 核心：检测“消失的比赛”（FT）
+            // 6️.  核心：检测“消失的比赛”（FT）
             // =========================
 
             Set<Long> newIds = new HashSet<>();
@@ -1070,12 +1072,12 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
 
             for (Long oldId : oldMatchMap.keySet()) {
 
-                // ❗ old有，new没有 → 比赛结束
+                //  old有，new没有 → 比赛结束
                 if (!newIds.contains(oldId)) {
 
                     System.out.println("[FT detected] fixture=" + oldId);
 
-                    // ✅ 构造 FT 推送
+                    //  构造 FT 推送
                     Map<String, Object> ftMsg = Map.of(
                             "fixture", Map.of(
                                     "id", oldId,
@@ -1083,12 +1085,14 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                             )
                     );
 
+                    simpMessagingTemplate.convertAndSend("/topic/live", ftMsg);
+
                     simpMessagingTemplate.convertAndSend(
-                            "/topic/live",
+                            "/topic/match/" + oldId,
                             ftMsg
                     );
 
-                    // ✅ finalize（只执行一次）
+                    //  finalize（只执行一次）
                     Long added = stringRedisTemplate.opsForSet()
                             .add("finished:fixtures", String.valueOf(oldId));
 
