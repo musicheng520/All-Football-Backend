@@ -3,6 +3,7 @@ package com.msc.service.impl;
 import com.msc.mapper.CommentMapper;
 import com.msc.model.dto.CommentCreateDTO;
 import com.msc.model.entity.Comment;
+import com.msc.model.vo.CommentVO;
 import com.msc.result.PageResult;
 import com.msc.service.CommentService;
 import com.msc.utils.ThreadLocalUtil;
@@ -33,8 +34,7 @@ public class CommentServiceImpl implements CommentService {
         commentMapper.insert(comment);
     }
 
-    @Override
-    public List<Comment> findByNewsId(Long newsId) {
+    public List<CommentVO> findByNewsId(Long newsId) {
         return commentMapper.findByNewsId(newsId);
     }
 

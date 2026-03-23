@@ -1,6 +1,7 @@
 package com.msc.mapper;
 
 import com.msc.model.entity.Comment;
+import com.msc.model.vo.CommentVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -11,7 +12,9 @@ public interface CommentMapper {
 
     void insert(Comment comment);
 
-    List<Comment> findByNewsId(Long newsId);
+    List<CommentVO> findByNewsId(Long newsId);
+
+
 
     void delete(Long id);
 

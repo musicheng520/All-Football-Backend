@@ -6,20 +6,40 @@
 <mapper namespace="com.msc.mapper.NewsMapper">
 
     <insert id="insert" parameterType="com.msc.model.entity.News" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO news (title, content, author_id, category, published_at, created_at, updated_at)
-        VALUES (#{title}, #{content}, #{authorId}, #{category}, #{publishedAt}, #{createdAt}, #{updatedAt})
+        INSERT INTO news
+        (title, content, author_id, category, cover_image, images, published_at, created_at, updated_at)
+        VALUES
+            (#{title}, #{content}, #{authorId}, #{category}, #{coverImage}, #{images}, #{publishedAt}, #{createdAt}, #{updatedAt})
     </insert>
 
     <select id="findById" resultType="com.msc.model.entity.News">
-        SELECT id, title, content, author_id AS authorId, category, published_at AS publishedAt,
-               created_at AS createdAt, updated_at AS updatedAt
+        SELECT
+            id,
+            title,
+            content,
+            author_id AS authorId,
+            category,
+            cover_image AS coverImage,
+            images,
+            published_at AS publishedAt,
+            created_at AS createdAt,
+            updated_at AS updatedAt
         FROM news
         WHERE id = #{id}
     </select>
 
     <select id="findAll" resultType="com.msc.model.entity.News">
-        SELECT id, title, content, author_id AS authorId, category, published_at AS publishedAt,
-               created_at AS createdAt, updated_at AS updatedAt
+        SELECT
+            id,
+            title,
+            content,
+            author_id AS authorId,
+            category,
+            cover_image AS coverImage,
+            images,
+            published_at AS publishedAt,
+            created_at AS createdAt,
+            updated_at AS updatedAt
         FROM news
         ORDER BY created_at DESC
     </select>
@@ -29,9 +49,17 @@
     </delete>
 
     <select id="findByIds" resultType="com.msc.model.entity.News">
-        SELECT id, title, content, author_id AS authorId,
-        category, published_at AS publishedAt,
-        created_at AS createdAt, updated_at AS updatedAt
+        SELECT
+        id,
+        title,
+        content,
+        author_id AS authorId,
+        category,
+        cover_image AS coverImage,
+        images,
+        published_at AS publishedAt,
+        created_at AS createdAt,
+        updated_at AS updatedAt
         FROM news
         WHERE id IN
         <foreach collection="list" item="id" open="(" separator="," close=")">
@@ -45,10 +73,20 @@
     </select>
 
     <select id="page" resultType="com.msc.model.entity.News">
-        select *
-        from news
-        order by created_at desc
-            limit #{offset}, #{size}
+        SELECT
+            id,
+            title,
+            content,
+            author_id AS authorId,
+            category,
+            cover_image AS coverImage,
+            images,
+            published_at AS publishedAt,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+        FROM news
+        ORDER BY created_at DESC
+            LIMIT #{offset}, #{size}
     </select>
 
 </mapper>

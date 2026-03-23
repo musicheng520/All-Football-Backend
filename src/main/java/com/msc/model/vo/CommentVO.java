@@ -9,5 +9,6 @@ public class CommentVO {
     private Long id;
     private String content;
     private String username;
+    private String avatar;
     private LocalDateTime createdAt;
 }

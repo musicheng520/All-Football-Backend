@@ -42,6 +42,8 @@ public class NewsServiceImpl implements NewsService {
         news.setContent(dto.getContent());
         news.setCategory(dto.getCategory());
         news.setAuthorId(authorId);
+        news.setCoverImage(dto.getCoverImage());
+        news.setImages(dto.getImages());
         news.setPublishedAt(LocalDateTime.now());
         news.setCreatedAt(LocalDateTime.now());
         news.setUpdatedAt(LocalDateTime.now());
@@ -115,40 +117,49 @@ public class NewsServiceImpl implements NewsService {
     @Override
     public NewsDetailVO getDetail(Long id) {
 
-        // query news
+        // 1. query news
         News news = newsMapper.findById(id);
         if (news == null) {
             throw new RuntimeException("News not found");
         }
 
-        // query author
+        // 2. query author
         User author = userMapper.findById(news.getAuthorId());
 
-        // query relate teamIds
+        // 3. query related team ids
         List<Long> teamIds = newsTeamMapper.findTeamIdsByNewsId(id);
-        List<Team> teams = teamIds.isEmpty()
+        List<Team> teams = (teamIds == null || teamIds.isEmpty())
                 ? List.of()
                 : teamMapper.findByIds(teamIds);
 
-        // query relate playerIds
+        // 4. query related player ids
         List<Long> playerIds = newsPlayerMapper.findPlayerIdsByNewsId(id);
-        List<Player> players = playerIds.isEmpty()
+        List<Player> players = (playerIds == null || playerIds.isEmpty())
                 ? List.of()
                 : playerMapper.findByIds(playerIds);
 
-        // query comments
-        List<Comment> comments = commentMapper.findByNewsId(id);
+        // 5. query comments directly as VO
+        List<CommentVO> commentVOs = commentMapper.findByNewsId(id);
 
-        // assemble VO
+        // 6. assemble VO
         NewsDetailVO vo = new NewsDetailVO();
         vo.setId(news.getId());
         vo.setTitle(news.getTitle());
         vo.setContent(news.getContent());
-        vo.setAuthorName(author.getUsername());
+        vo.setAuthorName(author != null ? author.getUsername() : null);
         vo.setCategory(news.getCategory());
         vo.setPublishedAt(news.getPublishedAt());
 
-        // team conversion
+        // 7. set images
+        vo.setCoverImage(news.getCoverImage());
+
+        if (news.getImages() != null && !news.getImages().isBlank()) {
+            vo.setImages(List.of(news.getImages().split(",")));
+        } else {
+            vo.setImages(List.of());
+        }
+
+        // 8. team conversion
         List<TeamSimpleVO> teamVOs = teams.stream().map(team -> {
             TeamSimpleVO t = new TeamSimpleVO();
             t.setId(team.getId());
@@ -157,7 +168,7 @@ public class NewsServiceImpl implements NewsService {
             return t;
         }).toList();
 
-        // player conversion
+        // 9. player conversion
         List<PlayerSimpleVO> playerVOs = players.stream().map(player -> {
             PlayerSimpleVO p = new PlayerSimpleVO();
             p.setId(player.getId());
@@ -166,17 +177,7 @@ public class NewsServiceImpl implements NewsService {
             return p;
         }).toList();
 
-        // comment conversion（with username）
-        List<CommentVO> commentVOs = comments.stream().map(comment -> {
-            User user = userMapper.findById(comment.getUserId());
-            CommentVO c = new CommentVO();
-            c.setId(comment.getId());
-            c.setContent(comment.getContent());
-            c.setCreatedAt(comment.getCreatedAt());
-            c.setUsername(user.getUsername());
-            return c;
-        }).toList();
-
+        // 10. set all
         vo.setTeams(teamVOs);
         vo.setPlayers(playerVOs);
         vo.setComments(commentVOs);

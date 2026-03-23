@@ -12,16 +12,17 @@
         VALUES (#{newsId}, #{userId}, #{content}, #{createdAt}, #{updatedAt})
     </insert>
 
-    <select id="findByNewsId" resultType="com.msc.model.entity.Comment">
-        SELECT id,
-        news_id AS newsId,
-        user_id AS userId,
-        content,
-        created_at AS createdAt,
-        updated_at AS updatedAt
-        FROM comments
-        WHERE news_id = #{newsId}
-        ORDER BY created_at DESC
+    <select id="findByNewsId" resultType="com.msc.model.vo.CommentVO">
+        SELECT
+            c.id,
+            c.content,
+            u.username,
+            u.avatar,
+            c.created_at AS createdAt
+        FROM comments c
+                 LEFT JOIN users u ON c.user_id = u.id
+        WHERE c.news_id = #{newsId}
+        ORDER BY c.created_at DESC
     </select>
 
     <delete id="delete">

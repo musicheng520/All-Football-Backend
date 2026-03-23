@@ -1,6 +1,7 @@
 package com.msc.controller.user;
 
 import com.msc.model.dto.CommentCreateDTO;
+import com.msc.model.vo.CommentVO;
 import com.msc.result.Result;
 import com.msc.model.entity.Comment;
 import com.msc.service.CommentService;
@@ -23,7 +24,7 @@ public class UserCommentController {
     }
 
     @GetMapping("/news/{newsId}")
-    public Result<List<Comment>> list(@PathVariable Long newsId) {
+    public Result<List<CommentVO>> list(@PathVariable Long newsId) {
         return Result.success(commentService.findByNewsId(newsId));
     }
 }

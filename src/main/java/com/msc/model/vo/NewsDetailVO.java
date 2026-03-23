@@ -17,7 +17,8 @@ public class NewsDetailVO {
     private String authorName;
     private String category;
     private LocalDateTime publishedAt;
-
+    private List<String> images;
+    private String coverImage;
     private List<TeamSimpleVO> teams;
     private List<PlayerSimpleVO> players;
     private List<CommentVO> comments;
