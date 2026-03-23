@@ -102,4 +102,20 @@ public class UserServiceImpl implements UserService {
                 records
         );
     }
+
+    @Override
+    public void updateAvatar(String avatarUrl) {
+
+        Long userId = ThreadLocalUtil.get();
+
+        if (userId == null) {
+            throw new RuntimeException("Not logged in");
+        }
+
+        if (avatarUrl == null || avatarUrl.isBlank()) {
+            throw new RuntimeException("Avatar url is empty");
+        }
+
+        userMapper.updateAvatar(userId, avatarUrl);
+    }
 }

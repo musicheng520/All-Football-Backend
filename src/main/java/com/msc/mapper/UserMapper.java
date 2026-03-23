@@ -22,4 +22,9 @@ public interface UserMapper {
 
     List<User> page(@Param("offset") int offset,
                     @Param("size") int size);
+
+    void updateAvatar(
+            @Param("userId") Long userId,
+            @Param("avatar") String avatar
+    );
 }

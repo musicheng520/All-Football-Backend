@@ -12,6 +12,10 @@ public class News {
     private String content;
     private Long authorId;
     private String category;
+
+    private String coverImage;
+
+    private String images;
     private LocalDateTime publishedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

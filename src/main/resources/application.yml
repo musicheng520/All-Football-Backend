@@ -35,3 +35,7 @@ football:
     - 78
     - 135
     - 61
+
+aws:
+  s3:
+    bucket: all-football-images

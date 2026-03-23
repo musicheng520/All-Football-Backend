@@ -15,6 +15,8 @@ public class User {
 
     private String role;     // ADMIN / USER
 
+    private String avatar;
+
     private Boolean enabled;
 
     private LocalDateTime createdAt;

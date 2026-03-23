@@ -47,5 +47,11 @@
             updated_at = NOW()
         WHERE id = #{id}
     </update>
+    <update id="updateAvatar">
+        UPDATE users
+        SET avatar = #{avatar},
+            updated_at = NOW()
+        WHERE id = #{userId}
+    </update>
 
 </mapper>

@@ -16,4 +16,6 @@ public interface UserService {
     void updateStatus(Long id, Boolean enabled);
 
     PageResult<User> page(int page, int size);
+
+    void updateAvatar(String avatar);
 }
