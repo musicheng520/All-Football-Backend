@@ -26,6 +26,10 @@ public class AdminNewsController {
             @RequestParam("title") String title,
             @RequestParam("content") String content,
             @RequestParam("category") String category,
+
+            @RequestParam(value = "teamIds", required = false) List<Long> teamIds,
+            @RequestParam(value = "playerIds", required = false) List<Long> playerIds,
+
             @RequestParam(value = "cover", required = false) MultipartFile cover,
             @RequestParam(value = "images", required = false) List<MultipartFile> images
     ) throws Exception {
@@ -36,15 +40,17 @@ public class AdminNewsController {
         dto.setContent(content);
         dto.setCategory(category);
 
-        // 1️. 上传封面
+        dto.setTeamIds(teamIds);
+        dto.setPlayerIds(playerIds);
+
+        // 1. cover
         if (cover != null && !cover.isEmpty()) {
             String coverUrl = s3Util.uploadNewsCover(cover);
             dto.setCoverImage(coverUrl);
         }
 
-        // 2️. 上传多图
+        // 2. images
         if (images != null && !images.isEmpty()) {
-
             List<String> urls = new ArrayList<>();
 
             for (MultipartFile file : images) {
@@ -55,7 +61,7 @@ public class AdminNewsController {
             dto.setImages(String.join(",", urls));
         }
 
-        // 3️ 调用 service
+        // 3. create
         newsService.create(dto);
 
         return Result.success();
