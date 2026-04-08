@@ -30,12 +30,18 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
 
         String uri = request.getRequestURI();
 
-        if (uri.equals("/auth/login")
-                || uri.equals("/auth/register")
-                || uri.startsWith("/fixtures")
-                || uri.startsWith("/teams")
-                || uri.startsWith("/players")
-                || uri.startsWith("/news")) {
+
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+
+        // 放行公开接口（关键修复）
+        if (uri.contains("/auth/login")
+                || uri.contains("/auth/register")
+                || uri.contains("/fixtures")
+                || uri.contains("/teams")
+                || uri.contains("/players")
+                || uri.contains("/news")) {
             return true;
         }
 
