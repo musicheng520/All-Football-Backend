@@ -20,17 +20,13 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(jwtAuthInterceptor)
                 .addPathPatterns("/**")
                 .excludePathPatterns(
-                        "/auth/login",
-                        "/auth/register",
-
-                        // 公共接口
-                        "/fixtures/**",
-                        "/teams/**",
-                        "/players/**",
-                        "/news/**",
-
-                        //  关键：放行 websocket
-                        "/ws/**"
+                        "/**/auth/login",
+                        "/**/auth/register",
+                        "/**/fixtures/**",
+                        "/**/teams/**",
+                        "/**/players/**",
+                        "/**/news/**",
+                        "/**/ws/**"
                 );
     }
 
