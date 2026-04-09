@@ -260,12 +260,15 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
 
             try {
 
-                String json = fetchFixtureById(fixture.getId());
+                // ✅ 改这里（关键）
+                String json = fetchFixtureEvents(fixture.getId());
 
                 JsonNode root = objectMapper.readTree(json);
-                JsonNode events = root.get("response").get(0).get("events");
+                JsonNode events = root.get("response");
 
-                if (events == null) continue;
+                if (events == null || !events.isArray() || events.isEmpty()) {
+                    continue;
+                }
 
                 List<MatchEvent> list = new ArrayList<>();
 
@@ -274,15 +277,15 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                     MatchEvent event = new MatchEvent();
 
                     event.setFixtureId(fixture.getId());
-                    event.setTeamId(longOrNull(e.get("team").get("id")));
-                    event.setPlayerId(longOrNull(e.get("player").get("id")));
-                    event.setAssistPlayerId(longOrNull(e.get("assist").get("id")));
+                    event.setTeamId(longOrNull(e.path("team").path("id")));
+                    event.setPlayerId(longOrNull(e.path("player").path("id")));
+                    event.setAssistPlayerId(longOrNull(e.path("assist").path("id")));
 
                     event.setType(textOrNull(e.get("type")));
                     event.setDetail(textOrNull(e.get("detail")));
 
-                    event.setMinute(intOrNull(e.get("time").get("elapsed")));
-                    event.setExtraMinute(intOrNull(e.get("time").get("extra")));
+                    event.setMinute(intOrNull(e.path("time").path("elapsed")));
+                    event.setExtraMinute(intOrNull(e.path("time").path("extra")));
 
                     event.setCreatedAt(LocalDateTime.now());
 
@@ -290,16 +293,24 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                 }
 
                 if (!list.isEmpty()) {
+
+                    // ✅ 幂等（建议）
+                    matchEventMapper.deleteByFixtureId(fixture.getId());
+
                     matchEventMapper.insertBatch(list);
+
                     total += list.size();
                 }
 
+                // ✅ 限流（必须）
+                Thread.sleep(200);
+
             } catch (Exception e) {
-                System.out.println("event sync fail fixture=" + fixture.getId());
+                System.out.println("[WARN] event fail fixture=" + fixture.getId());
             }
         }
 
-        System.out.println("[MatchEventsSync] synced=" + total);
+        System.out.println("[MatchEventsSync] total=" + total);
     }
 
     @Override
@@ -314,22 +325,21 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
 
             try {
 
-                String json = fetchFixtureById(fixture.getId());
+                // ✅ 改这里（关键）
+                String json = fetchFixtureLineups(fixture.getId());
 
                 JsonNode root = objectMapper.readTree(json);
+                JsonNode lineups = root.get("response");
 
-                JsonNode lineups =
-                        root.get("response").get(0).get("lineups");
-
-                if (lineups == null) continue;
+                if (lineups == null || !lineups.isArray() || lineups.isEmpty()) {
+                    continue;
+                }
 
                 for (JsonNode l : lineups) {
 
-                    Long teamId = longOrNull(l.get("team").get("id"));
+                    Long teamId = longOrNull(l.path("team").path("id"));
                     String formation = textOrNull(l.get("formation"));
-                    String coach = textOrNull(l.get("coach").get("name"));
-
-                    // -------- insert lineup --------
+                    String coach = textOrNull(l.path("coach").path("name"));
 
                     Lineup lineup = new Lineup();
 
@@ -341,69 +351,57 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
 
                     lineupMapper.insert(lineup);
 
-                    Long lineupId = lineup.getId();   // 关键
+                    Long lineupId = lineup.getId();
 
                     List<LineupPlayer> players = new ArrayList<>();
 
-                    // -------- starting XI --------
+                    // start XI
+                    for (JsonNode p : l.path("startXI")) {
 
-                    JsonNode startXI = l.get("startXI");
+                        LineupPlayer lp = new LineupPlayer();
 
-                    if (startXI != null) {
+                        lp.setLineupId(lineupId);
+                        lp.setPlayerId(longOrNull(p.path("player").path("id")));
+                        lp.setNumber(intOrNull(p.path("player").path("number")));
+                        lp.setPosition(textOrNull(p.path("player").path("pos")));
 
-                        for (JsonNode p : startXI) {
+                        lp.setIsStarting(1);
+                        lp.setCreatedAt(LocalDateTime.now());
 
-                            LineupPlayer lp = new LineupPlayer();
-
-                            lp.setLineupId(lineupId);
-                            lp.setPlayerId(longOrNull(p.get("player").get("id")));
-                            lp.setNumber(intOrNull(p.get("player").get("number")));
-                            lp.setPosition(textOrNull(p.get("player").get("pos")));
-
-                            lp.setIsStarting(1);
-                            lp.setCreatedAt(LocalDateTime.now());
-
-                            players.add(lp);
-                        }
+                        players.add(lp);
                     }
 
-                    // -------- substitutes --------
+                    // subs
+                    for (JsonNode p : l.path("substitutes")) {
 
-                    JsonNode subs = l.get("substitutes");
+                        LineupPlayer lp = new LineupPlayer();
 
-                    if (subs != null) {
+                        lp.setLineupId(lineupId);
+                        lp.setPlayerId(longOrNull(p.path("player").path("id")));
+                        lp.setNumber(intOrNull(p.path("player").path("number")));
+                        lp.setPosition(textOrNull(p.path("player").path("pos")));
 
-                        for (JsonNode p : subs) {
+                        lp.setIsStarting(0);
+                        lp.setCreatedAt(LocalDateTime.now());
 
-                            LineupPlayer lp = new LineupPlayer();
-
-                            lp.setLineupId(lineupId);
-                            lp.setPlayerId(longOrNull(p.get("player").get("id")));
-                            lp.setNumber(intOrNull(p.get("player").get("number")));
-                            lp.setPosition(textOrNull(p.get("player").get("pos")));
-
-                            lp.setIsStarting(0);
-                            lp.setCreatedAt(LocalDateTime.now());
-
-                            players.add(lp);
-                        }
+                        players.add(lp);
                     }
 
                     if (!players.isEmpty()) {
-
                         lineupPlayerMapper.insertBatch(players);
-
                         total += players.size();
                     }
                 }
 
-            } catch (Exception e) {
+                // ✅ 限流
+                Thread.sleep(200);
 
-                System.out.println("lineup sync fail fixture=" + fixture.getId());
+            } catch (Exception e) {
+                System.out.println("[WARN] lineup fail fixture=" + fixture.getId());
             }
         }
 
-        System.out.println("[LineupSync] synced players=" + total);
+        System.out.println("[LineupSync] total players=" + total);
     }
 
     @Override
@@ -464,35 +462,36 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
 
         List<Fixture> fixtures = fixtureMapper.findBySeason(season);
 
-        int count = 0;
+        int total = 0;
+        int successFixtures = 0;
+        int failFixtures = 0;
 
         for (Fixture fixture : fixtures) {
 
             try {
 
-                String json = fetchFixtureById(fixture.getId());
+                // ✅ 改这里（关键）
+                String json = fetchFixtureStatistics(fixture.getId());
 
                 JsonNode root = objectMapper.readTree(json);
+                JsonNode statistics = root.get("response");
 
-                JsonNode statistics =
-                        root.get("response").get(0).get("statistics");
-
-                if (statistics == null) continue;
+                if (statistics == null || !statistics.isArray() || statistics.isEmpty()) {
+                    continue;
+                }
 
                 List<MatchStatistic> list = new ArrayList<>();
 
                 for (JsonNode team : statistics) {
 
-                    Long teamId = longOrNull(team.get("team").get("id"));
+                    Long teamId = longOrNull(team.path("team").path("id"));
 
                     MatchStatistic stat = new MatchStatistic();
 
                     stat.setFixtureId(fixture.getId());
                     stat.setTeamId(teamId);
 
-                    JsonNode stats = team.get("statistics");
-
-                    for (JsonNode s : stats) {
+                    for (JsonNode s : team.path("statistics")) {
 
                         String type = textOrNull(s.get("type"));
                         String value = textOrNull(s.get("value"));
@@ -504,31 +503,24 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                             case "Total Shots":
                                 stat.setShotsTotal(intOrNull(s.get("value")));
                                 break;
-
                             case "Shots on Goal":
                                 stat.setShotsOnTarget(intOrNull(s.get("value")));
                                 break;
-
                             case "Ball Possession":
                                 stat.setPossession(value);
                                 break;
-
                             case "Fouls":
                                 stat.setFouls(intOrNull(s.get("value")));
                                 break;
-
                             case "Corner Kicks":
                                 stat.setCorners(intOrNull(s.get("value")));
                                 break;
-
                             case "Yellow Cards":
                                 stat.setYellowCards(intOrNull(s.get("value")));
                                 break;
-
                             case "Red Cards":
                                 stat.setRedCards(intOrNull(s.get("value")));
                                 break;
-
                             case "Offsides":
                                 stat.setOffsides(intOrNull(s.get("value")));
                                 break;
@@ -536,24 +528,32 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                     }
 
                     stat.setCreatedAt(LocalDateTime.now());
-
                     list.add(stat);
                 }
 
                 if (!list.isEmpty()) {
 
+                    matchStatisticMapper.deleteByFixtureId(fixture.getId());
                     matchStatisticMapper.insertBatch(list);
 
-                    count += list.size();
+                    total += list.size();
+                    successFixtures++;
                 }
 
-            } catch (Exception e) {
+                // ✅ 限流
+                Thread.sleep(200);
 
-                System.out.println("stat sync fail fixture=" + fixture.getId());
+            } catch (Exception e) {
+                failFixtures++;
+                System.out.println("[WARN] stat fail fixture=" + fixture.getId());
             }
         }
 
-        System.out.println("[MatchStatisticsSync] synced=" + count);
+        System.out.println(
+                "[MatchStatisticsSync] total=" + total +
+                        ", successFixtures=" + successFixtures +
+                        ", failFixtures=" + failFixtures
+        );
     }
 
     @Override
