@@ -19,26 +19,22 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
 
     /**
      * ==============================
-     * 1️⃣ 公共接口路径（无需登录）
+     * 公共接口（无需登录）
      * ==============================
      *
-     * 使用 AntPathMatcher 支持：
-     * - /xxx
-     * - /xxx/**
-     *
-     * 比 contains() 更安全、可维护
+     * 使用 AntPathMatcher：
+     * ✔ 支持 /xxx 和 /xxx/**
+     * ✔ 比 contains 更安全
      */
     private static final List<String> PUBLIC_PATH_PATTERNS = List.of(
             "/auth/login",
             "/auth/register",
-            "/fixtures",
-            "/fixtures/**",
-            "/teams",
-            "/teams/**",
-            "/players",
-            "/players/**",
-            "/news",
-            "/news/**",
+
+            "/fixtures", "/fixtures/**",
+            "/teams", "/teams/**",
+            "/players", "/players/**",
+            "/news", "/news/**",
+
             "/ws/**",
             "/error"
     );
@@ -51,7 +47,7 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
 
     /**
      * ==============================
-     * 2️⃣ 请求前拦截（核心逻辑）
+     * 核心拦截逻辑
      * ==============================
      */
     @Override
@@ -59,19 +55,19 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
                              HttpServletResponse response,
                              Object handler) {
 
-        // ✅ 1. 放行 OPTIONS（预检请求）
+        // ✅ 1. 放行预检请求（CORS 必须）
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             return true;
         }
 
         String uri = request.getRequestURI();
 
-        // ✅ 2. 放行公共接口
+        // ✅ 2. 放行公开接口
         if (isPublicPath(uri)) {
             return true;
         }
 
-        // ✅ 3. 获取 Authorization 头
+        // ✅ 3. 获取 Authorization
         String header = request.getHeader("Authorization");
 
         if (header == null || !header.startsWith("Bearer ")) {
@@ -88,7 +84,7 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
             Long userId = Long.valueOf(claims.getSubject());
             String role = (String) claims.get("role");
 
-            // ✅ 5. 校验 Redis 中 token（防止伪造 / 多端冲突）
+            // ✅ 5. 校验 Redis 中的 token（防伪造 / 单端登录）
             String redisToken = redisTemplate.opsForValue()
                     .get("login:" + userId);
 
@@ -103,13 +99,13 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
                 return false;
             }
 
-            // ✅ 7. 存入 ThreadLocal（供 Controller 使用）
+            // ✅ 7. 存入 ThreadLocal（后续业务使用）
             ThreadLocalUtil.set(userId);
 
             return true;
 
         } catch (Exception e) {
-            // JWT 解析失败 / 过期
+            // token 解析失败 / 过期
             response.setStatus(401);
             return false;
         }
@@ -117,7 +113,7 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
 
     /**
      * ==============================
-     * 3️⃣ 判断是否为公开路径
+     * 判断是否为公开路径
      * ==============================
      */
     private boolean isPublicPath(String uri) {
@@ -131,10 +127,10 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
 
     /**
      * ==============================
-     * 4️⃣ 请求完成后清理 ThreadLocal
+     * 请求结束清理 ThreadLocal
      * ==============================
      *
-     * 防止线程复用导致数据污染（非常关键）
+     * ❗ 非常重要（防止线程复用污染）
      */
     @Override
     public void afterCompletion(HttpServletRequest request,
