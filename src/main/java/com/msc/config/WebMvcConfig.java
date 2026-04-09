@@ -3,7 +3,8 @@ package com.msc.config;
 import com.msc.interceptor.JwtAuthInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.*;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 @RequiredArgsConstructor
@@ -28,23 +29,5 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/**/news/**",
                         "/**/ws/**"
                 );
-    }
-
-    /**
-     *  全局 CORS（最终版）
-     */
-    @Override
-    public void addCorsMappings(CorsRegistry registry) {
-
-        registry.addMapping("/**")
-                .allowedOrigins(
-                        "http://localhost:5173",
-                        "https://sicheng55.com",
-                        "https://www.sicheng55.com"
-                )
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("*")
-                .allowCredentials(true)
-                .maxAge(3600);
     }
 }

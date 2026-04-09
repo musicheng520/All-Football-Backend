@@ -3,25 +3,43 @@ package com.msc.interceptor;
 import com.msc.utils.JwtUtil;
 import com.msc.utils.ThreadLocalUtil;
 import io.jsonwebtoken.Claims;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthInterceptor implements HandlerInterceptor {
 
+    private static final List<String> PUBLIC_PATH_PATTERNS = List.of(
+            "/auth/login",
+            "/auth/register",
+            "/fixtures",
+            "/fixtures/**",
+            "/teams",
+            "/teams/**",
+            "/players",
+            "/players/**",
+            "/news",
+            "/news/**",
+            "/ws/**",
+            "/error"
+    );
+
     private final JwtUtil jwtUtil;
     private final StringRedisTemplate redisTemplate;
+    private final AntPathMatcher antPathMatcher = new AntPathMatcher();
 
     @Override
     public boolean preHandle(HttpServletRequest request,
                              HttpServletResponse response,
-                             Object handler) throws Exception {
+                             Object handler) {
 
         // 放行预检请求
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
@@ -30,18 +48,8 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
 
         String uri = request.getRequestURI();
 
-
-        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
-            return true;
-        }
-
-        // 放行公开接口（关键修复）
-        if (uri.contains("/auth/login")
-                || uri.contains("/auth/register")
-                || uri.contains("/fixtures")
-                || uri.contains("/teams")
-                || uri.contains("/players")
-                || uri.contains("/news")) {
+        // 放行公开接口
+        if (isPublicPath(uri)) {
             return true;
         }
 
@@ -55,7 +63,6 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
         String token = header.substring(7);
 
         try {
-
             Claims claims = jwtUtil.parseToken(token);
 
             Long userId = Long.valueOf(claims.getSubject());
@@ -75,13 +82,21 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
             }
 
             ThreadLocalUtil.set(userId);
-
             return true;
 
         } catch (Exception e) {
             response.setStatus(401);
             return false;
         }
+    }
+
+    private boolean isPublicPath(String uri) {
+        for (String pattern : PUBLIC_PATH_PATTERNS) {
+            if (antPathMatcher.match(pattern, uri)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
