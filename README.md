@@ -8,6 +8,16 @@ The project was developed as a Final Year Project and demonstrates the design an
 
 ---
 
+🌐 **Live Demo**  
+Frontend: https://sicheng55.com  
+Backend API: https://api.sicheng55.com  
+
+This system integrates an external football API with a self-built backend architecture to provide **real-time match updates**, **historical data queries**, and **interactive dashboards**.
+
+The project was developed as a Final Year Project and demonstrates the design and implementation o
+
+---
+
 # 🚀 Key Features
 
 ### Real-Time Match Updates
