@@ -13,12 +13,27 @@ import java.sql.SQLIntegrityConstraintViolationException;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    /**
+     * Business exception (custom)
+     */
     @ExceptionHandler(BaseException.class)
     public Result<?> handleBaseException(BaseException ex) {
         log.error("Business exception: {}", ex.getMessage());
         return Result.error(ex.getMessage());
     }
 
+    /**
+     * Runtime exception (e.g. wrong password)
+     */
+    @ExceptionHandler(RuntimeException.class)
+    public Result<?> handleRuntimeException(RuntimeException ex) {
+        log.error("Runtime exception: {}", ex.getMessage());
+        return Result.error(ex.getMessage());
+    }
+
+    /**
+     * SQL constraint exception
+     */
     @ExceptionHandler(SQLIntegrityConstraintViolationException.class)
     public Result<?> handleSqlIntegrityViolation(SQLIntegrityConstraintViolationException ex) {
         String message = ex.getMessage();
@@ -30,6 +45,9 @@ public class GlobalExceptionHandler {
         return Result.error(MessageConstant.UNKNOWN_ERROR);
     }
 
+    /**
+     * Global fallback exception
+     */
     @ExceptionHandler(Exception.class)
     public Result<?> handleException(Exception ex) {
         log.error("Unhandled exception", ex);
