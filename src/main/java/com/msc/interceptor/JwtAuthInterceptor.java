@@ -55,19 +55,19 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
                              HttpServletResponse response,
                              Object handler) {
 
-        // ✅ 1. 放行预检请求（CORS 必须）
+        //  1. 放行预检请求（CORS 必须）
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             return true;
         }
 
         String uri = request.getRequestURI();
 
-        // ✅ 2. 放行公开接口
+        //  2. 放行公开接口
         if (isPublicPath(uri)) {
             return true;
         }
 
-        // ✅ 3. 获取 Authorization
+        //  3. get Authorization
         String header = request.getHeader("Authorization");
 
         if (header == null || !header.startsWith("Bearer ")) {
@@ -78,13 +78,13 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
         String token = header.substring(7);
 
         try {
-            // ✅ 4. 解析 JWT
+            //  4. parse JWT token
             Claims claims = jwtUtil.parseToken(token);
 
             Long userId = Long.valueOf(claims.getSubject());
             String role = (String) claims.get("role");
 
-            // ✅ 5. 校验 Redis 中的 token（防伪造 / 单端登录）
+            //  5. check token in redis
             String redisToken = redisTemplate.opsForValue()
                     .get("login:" + userId);
 
@@ -93,13 +93,13 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
                 return false;
             }
 
-            // ✅ 6. 权限控制（管理员接口）
+            //  6. manage admin site（admin interface）
             if (uri.startsWith("/admin") && !"ADMIN".equals(role)) {
                 response.setStatus(403);
                 return false;
             }
 
-            // ✅ 7. 存入 ThreadLocal（后续业务使用）
+            //  7. store it to ThreadLocal（future usage）
             ThreadLocalUtil.set(userId);
 
             return true;

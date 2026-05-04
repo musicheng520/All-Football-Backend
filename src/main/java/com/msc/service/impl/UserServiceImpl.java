@@ -39,28 +39,21 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public String login(String username, String rawPassword) {
-
         User user = userMapper.findByUsername(username);
-
         if (user == null) {
             throw new RuntimeException("User not found");
         }
-
         if (!user.getEnabled()) {
             throw new RuntimeException("User disabled");
         }
-
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
             throw new RuntimeException("Wrong password");
         }
-
         // generate JWT
         String token = jwtUtil.generateToken(user.getId(), user.getRole());
-
         // store token in Redis (1 hour)
         redisTemplate.opsForValue()
                 .set("login:" + user.getId(), token, 1, TimeUnit.HOURS);
-
         return token;
     }
 

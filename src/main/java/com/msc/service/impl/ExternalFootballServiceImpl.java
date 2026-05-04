@@ -966,22 +966,17 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
 
     @Override
     public void refreshLiveSnapshotToRedis() {
-
         try {
-
             // 1️. read old snapshot
             String oldJson = stringRedisTemplate.opsForValue()
                     .get("live:fixtures");
-
             JsonNode oldSnapshot = null;
             if (oldJson != null && !oldJson.isEmpty()) {
                 oldSnapshot = objectMapper.readTree(oldJson);
             }
-
             // 2️. get new snapshot
             String newJson = fetchLiveFixturesFilteredJson();
             JsonNode newSnapshot = objectMapper.readTree(newJson);
-
             // 3️. cold start
             if (oldSnapshot == null) {
 
@@ -993,7 +988,6 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                 System.out.println("[LiveSnapshot] initialized (cold start)");
                 return;
             }
-
             // 4️. old map (O(n))
             Map<Long, JsonNode> oldMatchMap = new HashMap<>();
 
@@ -1007,52 +1001,39 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
             }
 
             // =========================
-            // 5️. delta detection (正常LIVE变化)
+            // 5️. delta detection (normal live change)
             // =========================
             for (JsonNode newMatch : newSnapshot) {
-
                 long fixtureId = newMatch.get("fixture")
                         .get("id")
                         .asLong();
-
                 JsonNode oldMatch = oldMatchMap.get(fixtureId);
-
                 List<String> changes =
                         deltaManager.detectChanges(oldMatch, newMatch);
-
                 if (!changes.isEmpty()) {
-
                     System.out.println(
                             "Match " + fixtureId +
                                     " changed → " + changes
                     );
-
-                    //  推送 LIVE 更新
+                    //  push  LIVE update through websocket
                     simpMessagingTemplate.convertAndSend("/topic/live", newMatch);
-
                     simpMessagingTemplate.convertAndSend(
                             "/topic/match/" + fixtureId,
                             newMatch
                     );
-
-                    // -------- 正常 FT（极少出现，但保留）--------
+                    // -------- normal FT--------
                     String status = newMatch
                             .get("fixture")
                             .get("status")
                             .get("short")
                             .asText();
-
                     if ("FT".equals(status) || "AET".equals(status) || "PEN".equals(status)) {
-
                         Long added = stringRedisTemplate.opsForSet()
                                 .add("finished:fixtures", String.valueOf(fixtureId));
-
                         if (added != null && added == 1L) {
-
                             System.out.println(
                                     "[FinalizeTrigger] fixture=" + fixtureId + " status=" + status
                             );
-
                             matchFinalizeService.finalizeMatch(fixtureId);
                         }
                     }
@@ -1512,89 +1493,128 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
 
             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-            // ---------- players ----------
+            // ---------- Get team from MySQL ----------
+            Team team = teamMapper.findById(teamId);
 
-            String playersUrl =
-                    "https://v3.football.api-sports.io/players?team="
-                            + teamId + "&season=" + season;
+            Long leagueId = null;
+            if (team != null) {
+                leagueId = team.getLeagueId();
+            }
 
-            ResponseEntity<String> playersResp =
-                    restTemplate.exchange(playersUrl, HttpMethod.GET, entity, String.class);
-
-            JsonNode playersRoot = objectMapper.readTree(playersResp.getBody());
-            JsonNode playersArr = playersRoot.path("response");
+            // ---------- players with pagination ----------
 
             List<PlayerVO> squad = new ArrayList<>();
 
-            for (JsonNode item : playersArr) {
+            int page = 1;
+            int totalPages = 1;
 
-                JsonNode playerNode = item.path("player");
-                JsonNode statsArr = item.path("statistics");
+            do {
+                String playersUrl =
+                        "https://v3.football.api-sports.io/players?team="
+                                + teamId
+                                + "&season=" + season
+                                + "&page=" + page;
 
-                if (statsArr == null || statsArr.size() == 0) {
-                    continue;
+                // Optional: filter by league if leagueId exists
+                if (leagueId != null) {
+                    playersUrl += "&league=" + leagueId;
                 }
 
-                JsonNode statsNode = statsArr.get(0);
+                ResponseEntity<String> playersResp =
+                        restTemplate.exchange(playersUrl, HttpMethod.GET, entity, String.class);
 
-                PlayerVO p = new PlayerVO();
+                JsonNode playersRoot = objectMapper.readTree(playersResp.getBody());
+                JsonNode playersArr = playersRoot.path("response");
 
-                // ---------- 基础信息 ----------
-                Long playerId = playerNode.path("id").asLong();
-                p.setId(playerId);
+                for (JsonNode item : playersArr) {
 
-                p.setName(playerNode.path("name").asText());
-                p.setAge(playerNode.path("age").isNull() ? null : playerNode.path("age").asInt());
-                p.setPhoto(playerNode.path("photo").asText(null));
+                    JsonNode playerNode = item.path("player");
+                    JsonNode statsArr = item.path("statistics");
 
-                // ---------- profile（缓存层🔥）----------
-                PlayerProfile profile = playerProfileService.getProfileByPlayerId(playerId);
+                    if (statsArr == null || statsArr.size() == 0) {
+                        continue;
+                    }
 
-                if (profile != null) {
-                    p.setNationality(profile.getNationality());
-                    p.setPosition(profile.getPosition());
-                    p.setNumber(profile.getNumber());
-                } else {
-                    p.setNationality(
-                            playerNode.path("nationality").isMissingNode() || playerNode.path("nationality").isNull()
+                    JsonNode statsNode = statsArr.get(0);
+
+                    PlayerVO p = new PlayerVO();
+
+                    // ---------- Basic info ----------
+                    Long playerId = playerNode.path("id").asLong();
+                    p.setId(playerId);
+
+                    p.setName(playerNode.path("name").asText());
+                    p.setAge(playerNode.path("age").isNull() ? null : playerNode.path("age").asInt());
+                    p.setPhoto(playerNode.path("photo").asText(null));
+
+                    // ---------- Profile ----------
+                    PlayerProfile profile = playerProfileService.getProfileByPlayerId(playerId);
+
+                    if (profile != null) {
+                        p.setNationality(profile.getNationality());
+                        p.setPosition(profile.getPosition());
+                        p.setNumber(profile.getNumber());
+                    } else {
+                        p.setNationality(
+                                playerNode.path("nationality").isMissingNode()
+                                        || playerNode.path("nationality").isNull()
+                                        ? null
+                                        : playerNode.path("nationality").asText()
+                        );
+                    }
+
+                    // ---------- Stats ----------
+                    p.setAppearances(
+                            statsNode.path("games").path("appearences").isNull()
                                     ? null
-                                    : playerNode.path("nationality").asText()
+                                    : statsNode.path("games").path("appearences").asInt()
                     );
+
+                    p.setGoals(
+                            statsNode.path("goals").path("total").isNull()
+                                    ? null
+                                    : statsNode.path("goals").path("total").asInt()
+                    );
+
+                    p.setAssists(
+                            statsNode.path("goals").path("assists").isNull()
+                                    ? null
+                                    : statsNode.path("goals").path("assists").asInt()
+                    );
+
+                    p.setRating(
+                            statsNode.path("games").path("rating").isNull()
+                                    ? null
+                                    : statsNode.path("games").path("rating").asText()
+                    );
+
+                    squad.add(p);
                 }
 
-                // ---------- stats ----------
-                p.setAppearances(
-                        statsNode.path("games").path("appearences").isNull()
-                                ? null
-                                : statsNode.path("games").path("appearences").asInt()
+                totalPages = playersRoot.path("paging").path("total").asInt(1);
+
+                System.out.println(
+                        "[FetchTeamDetail] team=" + teamId
+                                + " season=" + season
+                                + " players page=" + page + "/" + totalPages
+                                + " squadSize=" + squad.size()
                 );
 
-                p.setGoals(
-                        statsNode.path("goals").path("total").isNull()
-                                ? null
-                                : statsNode.path("goals").path("total").asInt()
-                );
+                page++;
 
-                p.setAssists(
-                        statsNode.path("goals").path("assists").isNull()
-                                ? null
-                                : statsNode.path("goals").path("assists").asInt()
-                );
-
-                p.setRating(
-                        statsNode.path("games").path("rating").isNull()
-                                ? null
-                                : statsNode.path("games").path("rating").asText()
-                );
-
-                squad.add(p);
-            }
+            } while (page <= totalPages);
 
             // ---------- fixtures ----------
 
             String fixturesUrl =
                     "https://v3.football.api-sports.io/fixtures?team="
-                            + teamId + "&season=" + season;
+                            + teamId
+                            + "&season=" + season;
+
+            // Optional: only show fixtures from this league
+            if (leagueId != null) {
+                fixturesUrl += "&league=" + leagueId;
+            }
 
             ResponseEntity<String> fixturesResp =
                     restTemplate.exchange(fixturesUrl, HttpMethod.GET, entity, String.class);
@@ -1619,30 +1639,24 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
                 f.setId(fixtureNode.path("id").asLong());
                 f.setLeagueId(leagueNode.path("id").asLong());
 
-                // team ids
                 f.setHomeTeamId(teamsNode.path("home").path("id").asLong());
                 f.setAwayTeamId(teamsNode.path("away").path("id").asLong());
 
-                // names
                 f.setHomeTeamName(teamsNode.path("home").path("name").asText());
                 f.setAwayTeamName(teamsNode.path("away").path("name").asText());
 
-                // logos
                 f.setHomeTeamLogo(teamsNode.path("home").path("logo").asText());
                 f.setAwayTeamLogo(teamsNode.path("away").path("logo").asText());
 
-                // score
                 f.setHomeScore(goalsNode.path("home").isNull() ? null : goalsNode.path("home").asInt());
                 f.setAwayScore(goalsNode.path("away").isNull() ? null : goalsNode.path("away").asInt());
 
-                // status
                 f.setStatus(statusNode.path("short").asText());
                 f.setElapsed(statusNode.path("elapsed").isNull() ? null : statusNode.path("elapsed").asInt());
 
                 f.setVenue(venueNode.path("name").asText(null));
                 f.setReferee(fixtureNode.path("referee").asText(null));
 
-                // match time
                 f.setMatchTime(
                         OffsetDateTime
                                 .parse(fixtureNode.path("date").asText())
@@ -1657,8 +1671,6 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
             );
 
             // ---------- build vo ----------
-
-            Team team = teamMapper.findById(teamId);
 
             TeamDetailVO vo = new TeamDetailVO();
             vo.setTeam(team);

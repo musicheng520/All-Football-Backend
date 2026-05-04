@@ -238,84 +238,56 @@ public class UserFixtureQueryServiceImpl implements UserFixtureQueryService {
      */
     @Override
     public FixtureDetailVO getFixtureDetail(Long fixtureId) {
-
         String key = "fixture:detail:" + fixtureId;
-
         try {
-
             // =========================
-            // 0️⃣ LIVE 优先（Redis）
+            // 0. get from LIVE （Redis）
             // =========================
             String liveJson = stringRedisTemplate.opsForValue().get("live:fixtures");
-
             if (liveJson != null) {
-
                 JsonNode liveArray = objectMapper.readTree(liveJson);
-
                 for (JsonNode match : liveArray) {
-
                     long id = match.get("fixture").get("id").asLong();
-
                     if (id == fixtureId) {
-
                         System.out.println("[LiveHit] fixture=" + fixtureId);
-
                         return convertLiveToVO(match);
                     }
                 }
             }
-
-
             // =========================
-            // 1️⃣ Redis（detail缓存）
+            // 1️. Redis（detail cache）
             // =========================
             String cache = stringRedisTemplate.opsForValue().get(key);
-
             if (cache != null) {
-
                 System.out.println("[RedisHit] " + key);
-
                 return objectMapper.readValue(cache, FixtureDetailVO.class);
             }
-
             System.out.println("[RedisMiss] " + key);
-
-
             // =========================
-            // 2️⃣ DB / 历史
+            // 2. DB / historical data
             // =========================
             Fixture fixture = fixtureService.findById(fixtureId);
-
             FixtureDetailVO vo;
-
             if (fixture != null
                     && fixture.getSeason() != null
                     && fixture.getSeason().equals(footballProperties.getDefaultSeason())) {
-
-                // 当前赛季
+                // current season
                 vo = externalFootballService.buildFixtureDetailFromDb(fixtureId);
-
             } else {
-
-                // 历史赛季
+                // historical season
                 vo = externalFootballService.fetchHistoricalFixtureDetail(fixtureId);
             }
-
-
             // =========================
-            // 3️⃣ 写缓存
+            // 3️. write to cache
             // =========================
             if (vo != null) {
-
                 stringRedisTemplate.opsForValue().set(
                         key,
                         objectMapper.writeValueAsString(vo),
                         Duration.ofHours(12)
                 );
             }
-
             return vo;
-
         } catch (Exception e) {
             throw new RuntimeException("Fixture detail query failed", e);
         }

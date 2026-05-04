@@ -143,7 +143,7 @@ public class PlayerQueryServiceImpl implements PlayerQueryService {
                 PlayerDetailVO vo =
                         objectMapper.readValue(cache, PlayerDetailVO.class);
 
-                // 👇 关键：cache出来也要补 profile
+                //  key：cache's detail should add profile
                 attachProfile(vo);
 
                 return vo;
@@ -152,9 +152,7 @@ public class PlayerQueryServiceImpl implements PlayerQueryService {
         } catch (Exception ignored) {}
 
         System.out.println("[RedisMiss] " + key);
-
         PlayerDetailVO vo;
-
         // current season → MySQL
         if (season.equals(footballProperties.getDefaultSeason())) {
 
