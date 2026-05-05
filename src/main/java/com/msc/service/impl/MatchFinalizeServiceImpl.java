@@ -36,6 +36,7 @@ public class MatchFinalizeServiceImpl implements MatchFinalizeService {
     private final LineupMapper lineupMapper;
     private final LineupPlayerMapper lineupPlayerMapper;
     private final PlayerMapper playerMapper;
+    private final FixtureMapper fixtureMapper;
 
     @Override
     @Transactional
@@ -46,6 +47,7 @@ public class MatchFinalizeServiceImpl implements MatchFinalizeService {
             System.out.println("--------------------------------------------------");
             System.out.println("[Finalize] START fixture=" + fixtureId);
 
+            // 1) Fetch latest fixture detail from external API
             String body = fetchFixtureById(fixtureId);
             JsonNode root = objectMapper.readTree(body);
             JsonNode responseArr = root.get("response");
@@ -57,35 +59,47 @@ public class MatchFinalizeServiceImpl implements MatchFinalizeService {
 
             JsonNode match = responseArr.get(0);
 
-            System.out.println("[Finalize] cleaning old data, fixture=" + fixtureId);
+            // 2) Update fixtures main table first
+            updateFixtureMainTable(fixtureId, match);
+
+            // 3) Clean old detail data
+            System.out.println("[Finalize] cleaning old detail data, fixture=" + fixtureId);
 
             lineupPlayerMapper.deleteByFixtureId(fixtureId);
             lineupMapper.deleteByFixtureId(fixtureId);
             matchEventMapper.deleteByFixtureId(fixtureId);
             matchStatisticMapper.deleteByFixtureId(fixtureId);
 
-            System.out.println("[Finalize] old data cleaned, fixture=" + fixtureId);
+            System.out.println("[Finalize] old detail data cleaned, fixture=" + fixtureId);
 
+            // 4) Save match statistics
             List<MatchStatistic> stats = parseStatistics(fixtureId, match.get("statistics"));
             System.out.println("[Finalize] parsed stats=" + stats.size());
 
             if (!stats.isEmpty()) {
                 matchStatisticMapper.insertBatch(stats);
                 System.out.println("[Finalize] inserted stats=" + stats.size());
+            } else {
+                System.out.println("[Finalize] no stats to insert");
             }
 
+            // 5) Save match events
             List<MatchEvent> events = parseEvents(fixtureId, match.get("events"));
             System.out.println("[Finalize] parsed events=" + events.size());
 
             if (!events.isEmpty()) {
                 matchEventMapper.insertBatch(events);
                 System.out.println("[Finalize] inserted events=" + events.size());
+            } else {
+                System.out.println("[Finalize] no events to insert");
             }
 
+            // 6) Save lineups and lineup players
             System.out.println("[Finalize] saving lineups, fixture=" + fixtureId);
             saveLineupsAndPlayers(fixtureId, match.get("lineups"));
             System.out.println("[Finalize] lineups saved, fixture=" + fixtureId);
 
+            // 7) Final log
             System.out.println("[Finalize] SUCCESS fixture=" + fixtureId
                     + ", stats=" + stats.size()
                     + ", events=" + events.size());
@@ -100,6 +114,59 @@ public class MatchFinalizeServiceImpl implements MatchFinalizeService {
 
             throw new RuntimeException(e);
         }
+    }
+
+    private void updateFixtureMainTable(Long fixtureId, JsonNode match) {
+
+        JsonNode fixtureNode = match.path("fixture");
+        JsonNode statusNode = fixtureNode.path("status");
+        JsonNode goalsNode = match.path("goals");
+        JsonNode venueNode = fixtureNode.path("venue");
+
+        Integer homeScore = goalsNode.path("home").isNull()
+                ? null
+                : goalsNode.path("home").asInt();
+
+        Integer awayScore = goalsNode.path("away").isNull()
+                ? null
+                : goalsNode.path("away").asInt();
+
+        String status = statusNode.path("short").isMissingNode()
+                || statusNode.path("short").isNull()
+                ? null
+                : statusNode.path("short").asText();
+
+        Integer elapsed = statusNode.path("elapsed").isNull()
+                ? null
+                : statusNode.path("elapsed").asInt();
+
+        String referee = fixtureNode.path("referee").isMissingNode()
+                || fixtureNode.path("referee").isNull()
+                ? null
+                : fixtureNode.path("referee").asText();
+
+        String venue = venueNode.path("name").isMissingNode()
+                || venueNode.path("name").isNull()
+                ? null
+                : venueNode.path("name").asText();
+
+        fixtureMapper.updateFinalStatus(
+                fixtureId,
+                homeScore,
+                awayScore,
+                status,
+                elapsed,
+                referee,
+                venue
+        );
+
+        System.out.println("[Finalize] fixture main table updated, fixture="
+                + fixtureId
+                + ", score=" + homeScore + "-" + awayScore
+                + ", status=" + status
+                + ", elapsed=" + elapsed
+                + ", referee=" + referee
+                + ", venue=" + venue);
     }
 
     private String fetchFixtureById(Long fixtureId) {

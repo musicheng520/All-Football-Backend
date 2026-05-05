@@ -10,6 +10,16 @@ import java.util.List;
 @Mapper
 public interface FixtureMapper {
 
+    void updateFinalStatus(
+            @Param("id") Long id,
+            @Param("homeScore") Integer homeScore,
+            @Param("awayScore") Integer awayScore,
+            @Param("status") String status,
+            @Param("elapsed") Integer elapsed,
+            @Param("referee") String referee,
+            @Param("venue") String venue
+    );
+
     Fixture findById(Long id);
 
     void insert(Fixture fixture);

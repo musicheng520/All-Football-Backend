@@ -13,6 +13,19 @@
         WHERE id = #{id}
     </select>
 
+
+    <update id="updateFinalStatus">
+        UPDATE fixtures
+        SET
+            home_score = #{homeScore},
+            away_score = #{awayScore},
+            status = #{status},
+            elapsed = #{elapsed},
+            referee = #{referee},
+            venue = #{venue},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
     <!-- add -->
     <insert id="insert"
             parameterType="com.msc.model.entity.Fixture">
