@@ -83,6 +83,12 @@
         WHERE id = #{id}
     </select>
 
+    <select id="existsById" resultType="java.lang.Integer">
+        SELECT COUNT(1)
+        FROM players
+        WHERE id = #{id}
+    </select>
+
     <!-- Count (动态条件) -->
     <select id="count" resultType="long">
         SELECT COUNT(*)

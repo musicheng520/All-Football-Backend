@@ -3,10 +3,7 @@ package com.msc.service.impl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.msc.config.FootballProperties;
-import com.msc.mapper.LineupMapper;
-import com.msc.mapper.LineupPlayerMapper;
-import com.msc.mapper.MatchEventMapper;
-import com.msc.mapper.MatchStatisticMapper;
+import com.msc.mapper.*;
 import com.msc.model.entity.Lineup;
 import com.msc.model.entity.LineupPlayer;
 import com.msc.model.entity.MatchEvent;
@@ -38,12 +35,16 @@ public class MatchFinalizeServiceImpl implements MatchFinalizeService {
     private final MatchStatisticMapper matchStatisticMapper;
     private final LineupMapper lineupMapper;
     private final LineupPlayerMapper lineupPlayerMapper;
+    private final PlayerMapper playerMapper;
 
     @Override
     @Transactional
     public void finalizeMatch(Long fixtureId) {
 
         try {
+
+            System.out.println("--------------------------------------------------");
+            System.out.println("[Finalize] START fixture=" + fixtureId);
 
             String body = fetchFixtureById(fixtureId);
             JsonNode root = objectMapper.readTree(body);
@@ -56,33 +57,47 @@ public class MatchFinalizeServiceImpl implements MatchFinalizeService {
 
             JsonNode match = responseArr.get(0);
 
-            // 1) Clean old data
+            System.out.println("[Finalize] cleaning old data, fixture=" + fixtureId);
+
             lineupPlayerMapper.deleteByFixtureId(fixtureId);
             lineupMapper.deleteByFixtureId(fixtureId);
             matchEventMapper.deleteByFixtureId(fixtureId);
             matchStatisticMapper.deleteByFixtureId(fixtureId);
 
-            // 2) Save statistics
+            System.out.println("[Finalize] old data cleaned, fixture=" + fixtureId);
+
             List<MatchStatistic> stats = parseStatistics(fixtureId, match.get("statistics"));
+            System.out.println("[Finalize] parsed stats=" + stats.size());
+
             if (!stats.isEmpty()) {
                 matchStatisticMapper.insertBatch(stats);
+                System.out.println("[Finalize] inserted stats=" + stats.size());
             }
 
-            // 3) Save events
             List<MatchEvent> events = parseEvents(fixtureId, match.get("events"));
+            System.out.println("[Finalize] parsed events=" + events.size());
+
             if (!events.isEmpty()) {
                 matchEventMapper.insertBatch(events);
+                System.out.println("[Finalize] inserted events=" + events.size());
             }
 
-            // 4) Save lineups + lineup players
+            System.out.println("[Finalize] saving lineups, fixture=" + fixtureId);
             saveLineupsAndPlayers(fixtureId, match.get("lineups"));
+            System.out.println("[Finalize] lineups saved, fixture=" + fixtureId);
 
-            System.out.println("[Finalize] fixture=" + fixtureId
-                    + " stats=" + stats.size()
-                    + " events=" + events.size()
-                    + " lineups_saved");
+            System.out.println("[Finalize] SUCCESS fixture=" + fixtureId
+                    + ", stats=" + stats.size()
+                    + ", events=" + events.size());
+            System.out.println("--------------------------------------------------");
 
         } catch (Exception e) {
+
+            System.out.println("[Finalize] FAILED fixture=" + fixtureId);
+            System.out.println("[Finalize] errorType=" + e.getClass().getSimpleName());
+            System.out.println("[Finalize] errorMessage=" + e.getMessage());
+            e.printStackTrace();
+
             throw new RuntimeException(e);
         }
     }
@@ -264,7 +279,43 @@ public class MatchFinalizeServiceImpl implements MatchFinalizeService {
             }
 
             if (!players.isEmpty()) {
-                lineupPlayerMapper.insertBatch(players);
+
+                List<LineupPlayer> validPlayers = new ArrayList<>();
+
+                for (LineupPlayer lp : players) {
+
+                    if (lp.getPlayerId() == null) {
+                        System.out.println("[FinalizeLineup] skip null playerId, lineupId=" + lp.getLineupId());
+                        continue;
+                    }
+
+                    Integer exists = playerMapper.existsById(lp.getPlayerId());
+
+                    if (exists == null || exists == 0) {
+                        System.out.println("[FinalizeLineup] skip missing playerId="
+                                + lp.getPlayerId()
+                                + ", lineupId="
+                                + lp.getLineupId()
+                                + ", position="
+                                + lp.getPosition()
+                                + ", number="
+                                + lp.getNumber());
+                        continue;
+                    }
+
+                    validPlayers.add(lp);
+                }
+
+                System.out.println("[FinalizeLineup] original players=" + players.size()
+                        + ", valid=" + validPlayers.size()
+                        + ", skipped=" + (players.size() - validPlayers.size()));
+
+                if (!validPlayers.isEmpty()) {
+                    lineupPlayerMapper.insertBatch(validPlayers);
+                    System.out.println("[FinalizeLineup] inserted lineupPlayers=" + validPlayers.size());
+                } else {
+                    System.out.println("[FinalizeLineup] no valid lineupPlayers to insert");
+                }
             }
         }
     }

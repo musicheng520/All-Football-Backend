@@ -10,6 +10,8 @@ import java.util.List;
 @Mapper
 public interface PlayerMapper {
 
+    Integer existsById(Long id);
+
     Player findById(Long id);
 
     void insert(Player player);

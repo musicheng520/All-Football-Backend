@@ -405,42 +405,90 @@ public class ExternalFootballServiceImpl implements ExternalFootballService {
     }
 
     @Override
-    @Transactional
     public void syncYesterdayMatches() {
 
         LocalDate yesterday = LocalDate.now().minusDays(1);
 
+        System.out.println("==================================================");
+        System.out.println("[YesterdaySync] START");
+        System.out.println("[YesterdaySync] targetDate=" + yesterday);
+        System.out.println("==================================================");
+
         List<Fixture> fixtures = fixtureMapper.findByDate(yesterday);
 
         if (fixtures == null || fixtures.isEmpty()) {
-            System.out.println("[YesterdaySync] no fixtures found");
+            System.out.println("[YesterdaySync] no fixtures found for date=" + yesterday);
+            System.out.println("[YesterdaySync] END");
+            System.out.println("==================================================");
             return;
         }
 
-        int count = 0;
+        System.out.println("[YesterdaySync] fixtures found=" + fixtures.size());
+
+        int finalizedCount = 0;
+        int skippedCount = 0;
+        int failedCount = 0;
 
         for (Fixture fixture : fixtures) {
 
-            try {
+            Long fixtureId = fixture.getId();
+            String status = fixture.getStatus();
 
-                String status = fixture.getStatus();
+            System.out.println("--------------------------------------------------");
+            System.out.println("[YesterdaySync] checking fixtureId=" + fixtureId);
+            System.out.println("[YesterdaySync] match="
+                    + fixture.getHomeTeamName()
+                    + " vs "
+                    + fixture.getAwayTeamName());
+            System.out.println("[YesterdaySync] status=" + status);
+            System.out.println("[YesterdaySync] matchTime=" + fixture.getMatchTime());
+            System.out.println("[YesterdaySync] score="
+                    + fixture.getHomeScore()
+                    + " - "
+                    + fixture.getAwayScore());
+
+            try {
 
                 if ("FT".equals(status) || "AET".equals(status) || "PEN".equals(status)) {
 
-                    matchFinalizeService.finalizeMatch(fixture.getId());
-                    count++;
+                    System.out.println("[YesterdaySync] finalizable=true, calling finalizeMatch...");
+                    matchFinalizeService.finalizeMatch(fixtureId);
+
+                    finalizedCount++;
+
+                    System.out.println("[YesterdaySync] finalized OK, fixtureId=" + fixtureId);
+
+                } else {
+
+                    skippedCount++;
+
+                    System.out.println("[YesterdaySync] skipped, reason=status is not finished, fixtureId="
+                            + fixtureId
+                            + ", status="
+                            + status);
                 }
 
             } catch (Exception e) {
 
-                System.out.println("[YesterdaySync] fail fixture=" + fixture.getId());
+                failedCount++;
+
+                System.out.println("[YesterdaySync] FAILED, fixtureId=" + fixtureId);
+                System.out.println("[YesterdaySync] errorType=" + e.getClass().getSimpleName());
+                System.out.println("[YesterdaySync] errorMessage=" + e.getMessage());
                 e.printStackTrace();
             }
         }
 
-        System.out.println("[YesterdaySync] finalized=" + count);
+        System.out.println("==================================================");
+        System.out.println("[YesterdaySync] SUMMARY");
+        System.out.println("[YesterdaySync] targetDate=" + yesterday);
+        System.out.println("[YesterdaySync] totalFixtures=" + fixtures.size());
+        System.out.println("[YesterdaySync] finalized=" + finalizedCount);
+        System.out.println("[YesterdaySync] skipped=" + skippedCount);
+        System.out.println("[YesterdaySync] failed=" + failedCount);
+        System.out.println("[YesterdaySync] END");
+        System.out.println("==================================================");
     }
-
     @Override
     @Transactional
     public void weeklyBaseSync(Integer season) {
